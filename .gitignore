@@ -1,0 +1,74 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+local/
+share/
+python-wheels/
+.tar.gz
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python Virtual Environments
+venv/
+.venv/
+env/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# Project Specific (Python)
+core-python/logs/
+!core-python/logs/.keep
+core-python/chroma_db/
+core-python/data/vectorstore/
+# Optional: Ignore raw data if it's too large, but currently keeping it as it looks like sample data
+# core-python/data/raw/ 
+
+# Go (Backend placeholder)
+backend-go/bin/
+backend-go/dist/
+*.exe
+*.test
+*.prof
+
+# Frontend (Placeholder)
+node_modules/
+frontend/dist/
+frontend/build/
+.npm/
+.yarn/
+*.local
+
+# IDEs
+.idea/
+*.swp
+*.swo
+
+
+#doc
+项目整体介绍.md
+
+
+#pydoc
+core-python/技术选型决策.md
+core-python/core-python设计方案.md
