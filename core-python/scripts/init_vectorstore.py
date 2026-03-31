@@ -1,119 +1,151 @@
+#!/usr/bin/env python3
 """
-初始化向量数据库
-批量加载知识库文档并建立向量索引
-"""
+向量库初始化脚本
 
+使用方法：
+    python scripts/init_vectorstore.py          # 增量添加（不清空）
+    python scripts/init_vectorstore.py --rebuild  # 重建（先清空再添加）
+"""
 import sys
+import argparse
 from pathlib import Path
 
-# 添加项目根目录到 Python 路径
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# 添加项目根目录到 path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.core.config import settings
-from app.core.logging import logger
-from app.rag.document_loader import DocumentLoader
-from app.rag.text_splitter import TextSplitter
-from app.rag.vectorstore import VectorStoreManager
+from app.rag.vectorstore import get_vectorstore_manager
+from app.rag.text_splitter import split_documents
+from app.rag.document_loader import load_documents_from_directory
+from app.core.config import KNOWLEDGE_BASE_DIR
+from langchain_core.documents import Document
 
 
-def initialize_vectorstore(
-    data_dir: str = None,
-    clean: bool = False,
-):
+def deduplicate_documents(documents: list) -> list:
     """
-    初始化向量数据库
+    基于内容 hash 对文档去重
+
+    即使文件名不同，如果内容完全一样也只保留一份
+    """
+    import hashlib
+
+    seen_hashes = set()
+    unique_docs = []
+    duplicate_count = 0
+
+    for doc in documents:
+        # 用内容生成hash（加入来源防止误判）
+        content_for_hash = f"{doc.page_content}|{doc.metadata.get('source', '')}"
+        content_hash = hashlib.md5(content_for_hash.encode()).hexdigest()
+
+        if content_hash not in seen_hashes:
+            unique_docs.append(doc)
+            seen_hashes.add(content_hash)
+        else:
+            duplicate_count += 1
+            print(f"  ⚠️ 检测到重复内容: {doc.metadata.get('source', 'unknown')}")
+
+    if duplicate_count > 0:
+        print(f"  已去除 {duplicate_count} 个重复文档")
+
+    return unique_docs
+
+
+def load_raw_documents():
+    """加载原始文档"""
+    docs_path = Path(KNOWLEDGE_BASE_DIR)
+
+    # 如果目录不存在，创建它
+    if not docs_path.exists():
+        docs_path.mkdir(parents=True, exist_ok=True)
+        print(f"创建知识库目录: {docs_path}")
+        return []
+
+    # 检查目录下是否有支持的文档
+    supported_extensions = [".pdf", ".txt", ".docx"]
+    has_files = any(
+        list(docs_path.glob(f"**/*{ext}")) for ext in supported_extensions
+    )
+
+    if not has_files:
+        print(f"目录 {docs_path} 中没有找到 PDF/TXT/DOCX 文档")
+        return []
+
+    # 加载所有文档
+    print(f"\n从 {docs_path} 加载文档...")
+    documents = load_documents_from_directory(str(docs_path))
+
+    return documents
+
+
+def init_vectorstore(rebuild: bool = False):
+    """初始化向量库
 
     Args:
-        data_dir: 数据目录路径
-        clean: 是否清空现有数据
+        rebuild: 是否重建（先清空再添加）
     """
-    try:
-        logger.info("=" * 60)
-        logger.info("开始初始化向量数据库")
-        logger.info("=" * 60)
+    print("=" * 50)
+    print("PetMind 向量库初始化")
+    print("=" * 50)
 
-        # 数据目录
-        if data_dir is None:
-            data_dir = settings.data_dir / "raw"
-        else:
-            data_dir = Path(data_dir)
+    # 加载文档
+    print("\n[1/3] 加载原始文档...")
+    raw_docs = load_raw_documents()
 
-        logger.info(f"数据目录: {data_dir}")
+    if not raw_docs:
+        print("\n未找到文档，使用示例数据进行测试...")
+        # 创建示例文档用于测试
+        sample_docs = [
+            Document(
+                page_content="犬瘟热是一种高度传染性的病毒性疾病，主要症状包括：发热、咳嗽、眼鼻分泌物、呕吐、腹泻、抽搐等。预防方法是接种犬瘟热疫苗。",
+                metadata={"source": "犬瘟热防治指南.txt", "type": "disease"},
+            ),
+            Document(
+                page_content="猫传染性腹膜炎(FIP)是由猫冠状病毒变异引起的疾病，分为干性和湿性两种类型。湿性FIP表现为腹水或胸水，干性FIP表现为器官损伤。",
+                metadata={"source": "猫传染性腹膜炎防治手册.txt", "type": "disease"},
+            ),
+            Document(
+                page_content="宠物疫苗接种指南：\n- 犬：狂犬疫苗、犬瘟热疫苗、犬细小病毒疫苗、犬腺病毒疫苗\n- 猫：狂犬疫苗、猫瘟疫苗、猫杯状病毒疫苗、猫疱疹病毒疫苗\n幼崽首免时间：6-8周龄，每隔2-3周加强一次，直到16周龄。",
+                metadata={"source": "宠物疫苗接种指南.txt", "type": "vaccine"},
+            ),
+        ]
+        print(f"创建 {len(sample_docs)} 个示例文档用于测试")
+        raw_docs = sample_docs
 
-        # 检查数据目录
-        if not data_dir.exists():
-            logger.error(f"数据目录不存在: {data_dir}")
-            return
+    print(f"共加载 {len(raw_docs)} 个文档")
 
-        # 初始化向量数据库管理器
-        vectorstore = VectorStoreManager()
+    # 去重
+    print("\n[检查重复文档...]")
+    raw_docs = deduplicate_documents(raw_docs)
+    print(f"去重后剩余 {len(raw_docs)} 个文档")
 
-        # 清空现有数据
-        if clean:
-            logger.warning("清空现有向量数据库...")
-            vectorstore.delete_collection()
-            vectorstore = VectorStoreManager()  # 重新初始化
+    # 分割文档
+    print("\n[2/3] 分割文档...")
+    chunks = split_documents(raw_docs)
+    print(f"分割成 {len(chunks)} 个文本块")
 
-        # 加载文档
-        logger.info("加载文档...")
-        documents = DocumentLoader.load_directory(
-            directory_path=data_dir,
-            glob_pattern="**/*.txt",
-            show_progress=True,
-        )
+    # 写入向量库
+    print("\n[3/3] 写入向量库...")
+    vectorstore_manager = get_vectorstore_manager()
 
-        if not documents:
-            logger.warning("未找到任何文档")
-            return
+    if rebuild:
+        print("  [重建模式] 先清空现有向量库...")
+        vectorstore_manager.delete_collection()
 
-        logger.info(f"成功加载 {len(documents)} 个文档")
+    vectorstore_manager.add_documents(chunks)
+    print("向量库初始化完成！")
 
-        # 切分文档
-        logger.info("切分文档...")
-        text_splitter = TextSplitter()
-        split_docs = text_splitter.split_documents(documents)
-
-        logger.info(f"切分后共 {len(split_docs)} 个文档块")
-
-        # 添加到向量库
-        logger.info("添加文档到向量库（此过程可能需要几分钟）...")
-        ids = vectorstore.add_documents(split_docs)
-
-        logger.info(f"成功添加 {len(ids)} 个文档块到向量库")
-
-        # 验证
-        count = vectorstore.get_collection_count()
-        logger.info(f"向量库中共有 {count} 个文档")
-
-        logger.info("=" * 60)
-        logger.info("向量数据库初始化完成！")
-        logger.info("=" * 60)
-
-    except Exception as e:
-        logger.error(f"初始化向量数据库时发生错误: {str(e)}")
-        raise
+    print("\n" + "=" * 50)
+    print("下一步：运行 python scripts/test_rag.py 测试 RAG 流程")
+    print("=" * 50)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="初始化向量数据库")
+    parser = argparse.ArgumentParser(description="PetMind 向量库初始化脚本")
     parser.add_argument(
-        "--data-dir",
-        type=str,
-        default=None,
-        help="数据目录路径（默认: data/raw）",
-    )
-    parser.add_argument(
-        "--clean",
+        "--rebuild",
         action="store_true",
-        help="清空现有数据",
+        help="重建模式：先清空向量库再重新添加文档",
     )
-
     args = parser.parse_args()
 
-    initialize_vectorstore(
-        data_dir=args.data_dir,
-        clean=args.clean,
-    )
+    init_vectorstore(rebuild=args.rebuild)

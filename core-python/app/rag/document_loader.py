@@ -1,147 +1,161 @@
 """
 文档加载器
-支持加载多种格式的文档
-"""
+负责加载各类兽医知识文档 (PDF, TXT, DOCX)
 
+使用 LangChain 的 DocumentLoader 统一接口
+"""
 from pathlib import Path
 from typing import List, Union
-
-from langchain_community.document_loaders import (
-    DirectoryLoader,
-    PyPDFLoader,
-    TextLoader,
-    UnstructuredMarkdownLoader,
-)
 from langchain_core.documents import Document
-
-from app.core.logging import logger
 
 
 class DocumentLoader:
-    """文档加载器"""
+    """文档加载器基类"""
 
-    @staticmethod
-    def load_text(file_path: Union[str, Path]) -> List[Document]:
-        """
-        加载文本文件
+    def __init__(self, file_path: str):
+        self.file_path = Path(file_path)
 
-        Args:
-            file_path: 文件路径
+    def load(self) -> List[Document]:
+        """加载文档，返回 Document 列表"""
+        raise NotImplementedError
 
-        Returns:
-            文档列表
-        """
+    def get_metadata(self) -> dict:
+        """获取文档元数据"""
+        return {
+            "source": self.file_path.name,
+            "file_path": str(self.file_path),
+        }
+
+
+class PDFLoader(DocumentLoader):
+    """PDF 文档加载"""
+
+    def load(self) -> List[Document]:
+        """加载 PDF 文档"""
         try:
-            logger.info(f"加载文本文件: {file_path}")
-            loader = TextLoader(str(file_path), encoding="utf-8")
-            documents = loader.load()
-            logger.info(f"成功加载 {len(documents)} 个文档")
-            return documents
+            from langchain_community.document_loaders import PyPDFLoader
+        except ImportError:
+            raise ImportError("请安装 PyPDFLoader: pip install pypdf")
 
-        except Exception as e:
-            logger.error(f"加载文本文件失败: {str(e)}")
-            raise
+        loader = PyPDFLoader(str(self.file_path))
+        documents = loader.load()
 
-    @staticmethod
-    def load_pdf(file_path: Union[str, Path]) -> List[Document]:
-        """
-        加载 PDF 文件
+        # 添加元数据
+        for doc in documents:
+            doc.metadata.update(self.get_metadata())
 
-        Args:
-            file_path: 文件路径
+        return documents
 
-        Returns:
-            文档列表
-        """
+
+class TXTLoader(DocumentLoader):
+    """TXT 文档加载"""
+
+    def load(self) -> List[Document]:
+        """加载 TXT 文档"""
         try:
-            logger.info(f"加载 PDF 文件: {file_path}")
-            loader = PyPDFLoader(str(file_path))
-            documents = loader.load()
-            logger.info(f"成功加载 {len(documents)} 个文档")
-            return documents
+            from langchain_community.document_loaders import TextLoader
+        except ImportError:
+            raise ImportError("请安装 TextLoader: pip install langchain-community")
 
-        except Exception as e:
-            logger.error(f"加载 PDF 文件失败: {str(e)}")
-            raise
+        loader = TextLoader(str(self.file_path), encoding="utf-8")
+        documents = loader.load()
 
-    @staticmethod
-    def load_markdown(file_path: Union[str, Path]) -> List[Document]:
-        """
-        加载 Markdown 文件
+        # 添加元数据
+        for doc in documents:
+            doc.metadata.update(self.get_metadata())
 
-        Args:
-            file_path: 文件路径
+        return documents
 
-        Returns:
-            文档列表
-        """
+
+class DOCXLoader(DocumentLoader):
+    """DOCX 文档加载"""
+
+    def load(self) -> List[Document]:
+        """加载 DOCX 文档"""
         try:
-            logger.info(f"加载 Markdown 文件: {file_path}")
-            loader = UnstructuredMarkdownLoader(str(file_path))
-            documents = loader.load()
-            logger.info(f"成功加载 {len(documents)} 个文档")
-            return documents
+            from langchain_community.document_loaders import UnstructuredWordDocumentLoader
+        except ImportError:
+            raise ImportError("请安装 python-docx: pip install python-docx")
 
-        except Exception as e:
-            logger.error(f"加载 Markdown 文件失败: {str(e)}")
-            raise
+        loader = UnstructuredWordDocumentLoader(str(self.file_path))
+        documents = loader.load()
 
-    @staticmethod
-    def load_directory(
-        directory_path: Union[str, Path],
-        glob_pattern: str = "**/*.txt",
-        show_progress: bool = True,
-    ) -> List[Document]:
-        """
-        加载目录中的所有文档
+        # 添加元数据
+        for doc in documents:
+            doc.metadata.update(self.get_metadata())
 
-        Args:
-            directory_path: 目录路径
-            glob_pattern: 文件匹配模式
-            show_progress: 是否显示进度
+        return documents
 
-        Returns:
-            文档列表
-        """
-        try:
-            logger.info(f"加载目录: {directory_path}, pattern={glob_pattern}")
 
-            loader = DirectoryLoader(
-                str(directory_path),
-                glob=glob_pattern,
-                loader_cls=TextLoader,
-                loader_kwargs={"encoding": "utf-8"},
-                show_progress=show_progress,
-            )
+def get_loader(file_path: str) -> DocumentLoader:
+    """
+    根据文件扩展名获取对应的加载器
 
-            documents = loader.load()
-            logger.info(f"成功从目录加载 {len(documents)} 个文档")
-            return documents
+    Args:
+        file_path: 文件路径
 
-        except Exception as e:
-            logger.error(f"加载目录失败: {str(e)}")
-            raise
+    Returns:
+        对应的 DocumentLoader 实例
 
-    @staticmethod
-    def load_file(file_path: Union[str, Path]) -> List[Document]:
-        """
-        根据文件扩展名自动选择加载器
+    Raises:
+        ValueError: 不支持的文件类型
+    """
+    suffix = Path(file_path).suffix.lower()
 
-        Args:
-            file_path: 文件路径
+    loaders = {
+        ".pdf": PDFLoader,
+        ".txt": TXTLoader,
+        ".docx": DOCXLoader,
+    }
 
-        Returns:
-            文档列表
-        """
-        file_path = Path(file_path)
-        suffix = file_path.suffix.lower()
+    if suffix not in loaders:
+        raise ValueError(f"不支持的文件类型: {suffix}，支持的类型: {list(loaders.keys())}")
 
-        if suffix == ".txt":
-            return DocumentLoader.load_text(file_path)
-        elif suffix == ".pdf":
-            return DocumentLoader.load_pdf(file_path)
-        elif suffix in [".md", ".markdown"]:
-            return DocumentLoader.load_markdown(file_path)
-        else:
-            logger.warning(f"未知文件类型 {suffix}，尝试作为文本加载")
-            return DocumentLoader.load_text(file_path)
+    return loaders[suffix](file_path)
+
+
+def load_document(file_path: str) -> List[Document]:
+    """
+    加载单个文档
+
+    Args:
+        file_path: 文件路径
+
+    Returns:
+        Document 列表
+    """
+    loader = get_loader(file_path)
+    return loader.load()
+
+
+def load_documents_from_directory(directory: str, extensions: List[str] = None) -> List[Document]:
+    """
+    从目录加载所有支持的文档
+
+    Args:
+        directory: 目录路径
+        extensions: 要加载的文件扩展名列表，如 [".pdf", ".txt", ".docx"]
+
+    Returns:
+        所有文档的 Document 列表
+    """
+    if extensions is None:
+        extensions = [".pdf", ".txt", ".docx"]
+
+    dir_path = Path(directory)
+    if not dir_path.exists():
+        raise FileNotFoundError(f"目录不存在: {directory}")
+
+    all_documents = []
+
+    for ext in extensions:
+        for file_path in dir_path.glob(f"**/*{ext}"):
+            if file_path.is_file():
+                try:
+                    documents = load_document(str(file_path))
+                    all_documents.extend(documents)
+                    print(f"  ✅ 加载成功: {file_path.name} ({len(documents)} 页/段)")
+                except Exception as e:
+                    print(f"  ❌ 加载失败: {file_path.name}, 错误: {e}")
+
+    return all_documents

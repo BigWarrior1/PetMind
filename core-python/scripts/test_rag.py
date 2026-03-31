@@ -1,67 +1,53 @@
+#!/usr/bin/env python3
 """
-测试 RAG 问答功能
-"""
+RAG 测试脚本
 
-import asyncio
+使用方法：
+    python scripts/test_rag.py
+"""
 import sys
 from pathlib import Path
 
-# 添加项目根目录到 Python 路径
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# 添加项目根目录到 path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.core.logging import logger
-from app.services.rag_service import RAGService
+from app.services.rag_service import get_rag_service
 
 
-async def test_rag():
+def test_rag():
     """测试 RAG 问答"""
-    try:
-        logger.info("=" * 60)
-        logger.info("测试 RAG 问答功能")
-        logger.info("=" * 60)
+    print("=" * 50)
+    print("PetMind RAG 测试")
+    print("=" * 50)
 
-        # 初始化 RAG 服务
-        rag_service = RAGService()
+    # 测试问题
+    test_questions = [
+        "狗狗咳嗽怎么办？",
+        "猫瘟有什么症状？",
+        "宠物疫苗怎么接种？",
+    ]
 
-        # 测试问题列表
-        test_questions = [
-            "狗狗出现高烧和咳嗽怎么办？",
-            "猫传腹有哪些症状？",
-            "幼犬什么时候开始打疫苗？",
-            "犬瘟热的治疗方法有哪些？",
-        ]
+    rag_service = get_rag_service()
 
-        for i, question in enumerate(test_questions, 1):
-            logger.info(f"\n{'=' * 60}")
-            logger.info(f"问题 {i}: {question}")
-            logger.info(f"{'=' * 60}")
+    for i, question in enumerate(test_questions, 1):
+        print(f"\n{'=' * 50}")
+        print(f"测试 {i}: {question}")
+        print("-" * 50)
 
-            # 执行问答
-            result = await rag_service.answer_question(question=question)
+        result = rag_service.ask(question)
 
-            # 打印结果
-            print(f"\n问题: {question}")
-            print(f"\n回答:\n{result['answer']}")
-            print(f"\n置信度: {result.get('confidence', 0):.2f}")
-            print(f"\n知识来源:")
-            for j, source in enumerate(result.get('sources', []), 1):
-                print(f"  [{j}] {source.source} (相似度: {source.score:.2f})")
-                print(f"      {source.content[:100]}...")
+        print(f"回答：\n{result['answer']}")
+        print(f"\n来源数量：{len(result['sources'])}")
+        for j, source in enumerate(result['sources'], 1):
+            print(f"  [{j}] {source['source']} (score: {source['score']:.4f})")
 
-            if result.get('warning'):
-                print(f"\n⚠️ {result['warning']}")
+        if result['warning']:
+            print(f"\n警示：{result['warning']}")
 
-            print("\n")
-
-        logger.info("=" * 60)
-        logger.info("测试完成")
-        logger.info("=" * 60)
-
-    except Exception as e:
-        logger.error(f"测试时发生错误: {str(e)}")
-        raise
+    print("\n" + "=" * 50)
+    print("测试完成！")
+    print("=" * 50)
 
 
 if __name__ == "__main__":
-    asyncio.run(test_rag())
+    test_rag()

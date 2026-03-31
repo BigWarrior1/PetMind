@@ -1,64 +1,66 @@
 """
-聊天端点
-提供基于 RAG 的问答接口
+聊天问答 API
 """
+from typing import Optional, Dict, List
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
-from fastapi import APIRouter, HTTPException, status
-
-from app.core.logging import logger
-from app.models.request import ChatRequest
-from app.models.response import ChatResponse, ErrorResponse
 from app.services.rag_service import get_rag_service
 
 router = APIRouter()
 
 
-@router.post(
-    "/chat",
-    response_model=ChatResponse,
-    responses={
-        500: {"model": ErrorResponse, "description": "服务器内部错误"},
-    },
-    summary="智能问答",
-    description="基于 RAG 的宠物健康问答，支持个性化宠物档案",
-)
-async def chat(request: ChatRequest) -> ChatResponse:
+class PetInfo(BaseModel):
+    """宠物信息"""
+    species: Optional[str] = None  # 种类（狗、猫）
+    breed: Optional[str] = None  # 品种
+    age: Optional[str] = None  # 年龄
+    weight: Optional[str] = None  # 体重
+
+
+class ChatRequest(BaseModel):
+    """聊天请求"""
+    question: str
+    pet_info: Optional[PetInfo] = None
+
+
+class Source(BaseModel):
+    """来源信息"""
+    source: str
+    score: float
+
+
+class ChatResponse(BaseModel):
+    """聊天响应"""
+    answer: str
+    sources: List[Source]
+    warning: Optional[str] = None
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
     """
-    智能问答接口
+    RAG 智能问答接口
 
-    Args:
-        request: 聊天请求
-
-    Returns:
-        聊天响应
+    - 输入问题，返回基于知识库的回答
+    - 可选提供宠物信息以获得更精准的回答
     """
-    try:
-        logger.info(f"收到问答请求: question={request.question[:50]}...")
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="问题不能为空")
 
-        # 获取 RAG 服务
-        rag_service = get_rag_service()
+    rag_service = get_rag_service()
 
-        # 执行 RAG 问答
-        result = await rag_service.answer_question(
-            question=request.question,
-            pet_profile=request.pet_profile,
-        )
+    pet_info_dict = None
+    if request.pet_info:
+        pet_info_dict = request.pet_info.model_dump()
 
-        # 构造响应
-        response = ChatResponse(
-            answer=result["answer"],
-            sources=result["sources"],
-            confidence=result.get("confidence"),
-            warning=result.get("warning"),
-            session_id=request.session_id,
-        )
+    result = rag_service.ask(
+        question=request.question,
+        pet_info=pet_info_dict,
+    )
 
-        logger.info("问答请求处理完成")
-        return response
-
-    except Exception as e:
-        logger.error(f"处理问答请求时发生错误: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"处理请求时发生错误: {str(e)}",
-        )
+    return ChatResponse(
+        answer=result["answer"],
+        sources=[Source(**s) for s in result["sources"]],
+        warning=result["warning"],
+    )

@@ -1,130 +1,75 @@
 """
 检索器
-封装向量数据库的检索功能
+封装 RAG 检索逻辑
 """
-
 from typing import List, Optional
-
 from langchain_core.documents import Document
 
-from app.core.config import settings
-from app.core.logging import logger
-from app.rag.vectorstore import VectorStoreManager
+from app.core.config import RAG_TOP_K, RAG_SCORE_THRESHOLD
+from app.rag.vectorstore import get_vectorstore_manager
 
 
-class Retriever:
-    """检索器"""
+class RAGRetriever:
+    """RAG 检索器"""
 
     def __init__(
         self,
-        vectorstore: Optional[VectorStoreManager] = None,
-        k: int = settings.retriever_k,
+        top_k: int = RAG_TOP_K,
+        score_threshold: float = RAG_SCORE_THRESHOLD,
     ):
-        """
-        初始化检索器
+        self.top_k = top_k
+        self.score_threshold = score_threshold
+        self.vectorstore_manager = get_vectorstore_manager()
 
-        Args:
-            vectorstore: 向量数据库管理器
-            k: 返回结果数量
-        """
-        from app.rag.vectorstore import get_vectorstore
-
-        self.vectorstore = vectorstore or get_vectorstore()
-        self.k = k
-
-        logger.info(f"初始化检索器: k={k}")
-
-    def retrieve(
-        self,
-        query: str,
-        k: Optional[int] = None,
-        filter: Optional[dict] = None,
-    ) -> List[Document]:
+    def retrieve(self, query: str, filter: Optional[dict] = None) -> List[Document]:
         """
         检索相关文档
 
         Args:
             query: 查询文本
-            k: 返回结果数量
             filter: 元数据过滤条件
 
         Returns:
             相关文档列表
         """
-        k = k or self.k
+        results = self.vectorstore_manager.similarity_search_with_score(
+            query=query,
+            k=self.top_k,
+            filter=filter,
+        )
 
-        try:
-            logger.info(f"检索相关文档: query={query[:50]}..., k={k}")
+        # 过滤低分结果
+        filtered = [
+            (doc, score) for doc, score in results if score <= self.score_threshold
+        ]
 
-            documents = self.vectorstore.similarity_search(
-                query=query,
-                k=k,
-                filter=filter,
-            )
+        return [doc for doc, _ in filtered]
 
-            logger.info(f"检索到 {len(documents)} 个相关文档")
-            return documents
-
-        except Exception as e:
-            logger.error(f"检索时发生错误: {str(e)}")
-            raise
-
-    def retrieve_with_scores(
-        self,
-        query: str,
-        k: Optional[int] = None,
-        filter: Optional[dict] = None,
-    ) -> List[tuple[Document, float]]:
+    def retrieve_with_sources(self, query: str, filter: Optional[dict] = None) -> tuple:
         """
-        带相似度分数的检索
-
-        Args:
-            query: 查询文本
-            k: 返回结果数量
-            filter: 元数据过滤条件
+        检索并返回来源信息
 
         Returns:
-            (文档, 相似度分数) 列表
+            (documents, sources) 元组
         """
-        k = k or self.k
+        results = self.vectorstore_manager.similarity_search_with_score(
+            query=query,
+            k=self.top_k,
+            filter=filter,
+        )
 
-        try:
-            logger.info(f"检索相关文档（带分数）: query={query[:50]}..., k={k}")
+        filtered = [
+            (doc, score) for doc, score in results if score <= self.score_threshold
+        ]
 
-            results = self.vectorstore.similarity_search_with_score(
-                query=query,
-                k=k,
-                filter=filter,
-            )
+        documents = [doc for doc, _ in filtered]
+        sources = [
+            {
+                "content": doc.page_content[:100] + "...",
+                "source": doc.metadata.get("source", "unknown"),
+                "score": score,
+            }
+            for doc, score in filtered
+        ]
 
-            logger.info(f"检索到 {len(results)} 个相关文档")
-            return results
-
-        except Exception as e:
-            logger.error(f"检索时发生错误: {str(e)}")
-            raise
-
-    def format_documents(self, documents: List[Document]) -> str:
-        """
-        格式化文档为字符串
-
-        Args:
-            documents: 文档列表
-
-        Returns:
-            格式化后的文档内容
-        """
-        formatted_docs = []
-
-        for i, doc in enumerate(documents, 1):
-            content = doc.page_content
-            source = doc.metadata.get("source", "未知来源")
-
-            formatted_docs.append(f"【文档 {i}】\n来源: {source}\n内容: {content}\n")
-
-        return "\n".join(formatted_docs)
-
-
-def get_retriever() -> Retriever:
-    """获取检索器实例"""
-    return Retriever()
+        return documents, sources
