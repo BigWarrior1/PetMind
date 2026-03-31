@@ -21,8 +21,8 @@ Vue 3 Frontend → Go Gin Gateway → Python FastAPI (RAG Engine) → Chroma DB 
 | 模块 | 技术栈 | 状态 |
 |------|--------|------|
 | `frontend/` | Vue 3 + Vite + TailwindCSS | 规划中 |
-| `backend-go/` | Go + Gin + GORM + MySQL/PostgreSQL | 规划中 |
-| `core-python/` | Python + FastAPI + LangChain + Chroma | **当前开发重点** |
+| `backend-go/` | Go + Gin + GORM + SQLite | ✅ 已完成 |
+| `core-python/` | Python + FastAPI + LangChain + Chroma | ✅ 已完成 |
 
 ### AI 服务架构 (core-python/)
 
@@ -198,8 +198,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 - [x] ~~Phase 0~~: 需求分析与技术选型 ✅
 - [x] **Phase 1**: Python 核心 AI 引擎 (RAG 问答流程) ✅
-- [ ] **Phase 1.5**: 多模态扩展 (图片分析 qwen-vl-plus)
-- [ ] **Phase 2**: Go 后端基础框架搭建
+- [x] **Phase 1.5**: 多模态扩展 (qwen3.5-plus 图片分析) ✅
+- [x] **Phase 2**: Go 后端基础框架搭建 ✅
 - [ ] **Phase 3**: 前端 MVP 版本开发
 - [ ] **Phase 4**: 前后端联调与完整链路测试
 

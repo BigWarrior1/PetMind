@@ -17,7 +17,10 @@
       "WebFetch(domain:vpn07.com)",
       "WebFetch(domain:apidog.com)",
       "Bash(./venv/Scripts/python.exe -m pip install langchain-openai openai --quiet)",
-      "Bash(./venv/Scripts/python.exe scripts/test_multimodal.py)"
+      "Bash(./venv/Scripts/python.exe scripts/test_multimodal.py)",
+      "Bash(go get:*)",
+      "Bash(go mod:*)",
+      "Bash(go build:*)"
     ]
   }
 }
