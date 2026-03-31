@@ -72,3 +72,9 @@ frontend/build/
 #pydoc
 core-python/技术选型决策.md
 core-python/core-python设计方案.md
+
+#数据
+core-python/data/*
+!core-python/data/
+
+

@@ -39,7 +39,9 @@ def test_rag():
         print(f"回答：\n{result['answer']}")
         print(f"\n来源数量：{len(result['sources'])}")
         for j, source in enumerate(result['sources'], 1):
-            print(f"  [{j}] {source['source']} (score: {source['score']:.4f})")
+            print(f"  [{j}] {source['source']}")
+            print(f"      类型: {source.get('source_type', 'N/A')}, 置信度: {source.get('confidence', 0):.2f}")
+            print(f"      语义相似度: {source.get('semantic_score', 0):.4f}, 综合评分: {source.get('combined_score', 0):.4f}")
 
         if result['warning']:
             print(f"\n警示：{result['warning']}")

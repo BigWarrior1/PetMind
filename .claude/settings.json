@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c \"import langchain_community; print\\(''langchain_community ok''\\)\")",
+      "Bash(python -c \"import langchain; print\\(''langchain ok''\\)\")",
+      "Bash(python -c \"import sys; print\\(sys.path\\)\")",
+      "Bash(python -c \"import site; print\\(site.getsitepackages\\(\\)\\)\")",
+      "Bash(python -c \"import langchain_community; print\\(''''ok''''\\)\")",
+      "Bash(python -m pip install langchain langchain-community langchain-chroma dashscope --quiet)",
+      "Bash(python -m pip install pypdf --quiet)",
+      "Bash(./venv/Scripts/python.exe scripts/init_vectorstore.py --rebuild)",
+      "Bash(./venv/Scripts/python.exe scripts/test_rag.py)",
+      "WebFetch(domain:bailian.console.aliyun.com)",
+      "WebFetch(domain:help.aliyun.com)",
+      "WebFetch(domain:wcode.net)",
+      "WebFetch(domain:vpn07.com)",
+      "WebFetch(domain:apidog.com)",
+      "Bash(./venv/Scripts/python.exe -m pip install langchain-openai openai --quiet)",
+      "Bash(./venv/Scripts/python.exe scripts/test_multimodal.py)"
+    ]
+  }
+}

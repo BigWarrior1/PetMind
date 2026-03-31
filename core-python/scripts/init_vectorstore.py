@@ -93,19 +93,34 @@ def init_vectorstore(rebuild: bool = False):
 
     if not raw_docs:
         print("\n未找到文档，使用示例数据进行测试...")
-        # 创建示例文档用于测试
+        # 创建示例文档用于测试（带置信度元数据）
         sample_docs = [
             Document(
                 page_content="犬瘟热是一种高度传染性的病毒性疾病，主要症状包括：发热、咳嗽、眼鼻分泌物、呕吐、腹泻、抽搐等。预防方法是接种犬瘟热疫苗。",
-                metadata={"source": "犬瘟热防治指南.txt", "type": "disease"},
+                metadata={
+                    "source": "犬瘟热防治指南.txt",
+                    "source_type": "权威手册",
+                    "confidence": 0.95,
+                    "type": "disease"
+                },
             ),
             Document(
                 page_content="猫传染性腹膜炎(FIP)是由猫冠状病毒变异引起的疾病，分为干性和湿性两种类型。湿性FIP表现为腹水或胸水，干性FIP表现为器官损伤。",
-                metadata={"source": "猫传染性腹膜炎防治手册.txt", "type": "disease"},
+                metadata={
+                    "source": "猫传染性腹膜炎防治手册.txt",
+                    "source_type": "权威手册",
+                    "confidence": 0.90,
+                    "type": "disease"
+                },
             ),
             Document(
                 page_content="宠物疫苗接种指南：\n- 犬：狂犬疫苗、犬瘟热疫苗、犬细小病毒疫苗、犬腺病毒疫苗\n- 猫：狂犬疫苗、猫瘟疫苗、猫杯状病毒疫苗、猫疱疹病毒疫苗\n幼崽首免时间：6-8周龄，每隔2-3周加强一次，直到16周龄。",
-                metadata={"source": "宠物疫苗接种指南.txt", "type": "vaccine"},
+                metadata={
+                    "source": "宠物疫苗接种指南.txt",
+                    "source_type": "学术论文",
+                    "confidence": 0.85,
+                    "type": "vaccine"
+                },
             ),
         ]
         print(f"创建 {len(sample_docs)} 个示例文档用于测试")
