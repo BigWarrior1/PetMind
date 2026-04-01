@@ -59,6 +59,21 @@ class LLMService:
         response = chat_model.invoke(messages)
         return response.content
 
+    def chat_stream(self, messages: List[BaseMessage]):
+        """
+        流式聊天接口
+
+        Args:
+            messages: 消息列表
+
+        Yields:
+            AI 回复文本片段
+        """
+        chat_model = self.get_chat_model()
+        for chunk in chat_model.stream(messages):
+            if chunk.content:
+                yield chunk.content
+
     def chat_with_prompt(self, system_prompt: str, user_prompt: str) -> str:
         """
         简易聊天接口

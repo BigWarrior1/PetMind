@@ -31,6 +31,20 @@ export const messagesApi = {
     return request.post<any, Message>('/messages', data)
   },
 
+  sendStream(data: SendMessageRequest): Promise<Response> {
+    const token = localStorage.getItem('token')
+    const url = `${request.defaults.baseURL}/messages/stream`
+
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: JSON.stringify(data)
+    }) as unknown as Promise<Response>
+  },
+
   sendImage(formData: FormData) {
     return request.post<any, Message>('/messages/image', formData, {
       headers: {

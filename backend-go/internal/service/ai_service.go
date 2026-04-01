@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"petmind-backend/internal/model"
 )
@@ -104,6 +105,105 @@ func (s *AIService) ChatWithHistory(question string, petInfo *PetInfo, history [
 		Sources: sources,
 		Warning: result.Warning,
 	}, nil
+}
+
+// StreamChunk 流式返回的文本块
+type StreamChunk struct {
+	Content string
+	Sources []model.SourceInfo
+	Warning string
+	Done    bool
+	Error   error
+}
+
+// ChatWithHistoryStream 带历史记录的流式聊天
+func (s *AIService) ChatWithHistoryStream(question string, petInfo *PetInfo, history []string, sessionSummary string) (<-chan StreamChunk, error) {
+	reqBody := AIRequestBody{
+		Question:       question,
+		PetInfo:        petInfo,
+		History:        history,
+		SessionSummary: sessionSummary,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/chat/stream", s.apiURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("调用AI服务失败: %w", err)
+	}
+
+	chunkChan := make(chan StreamChunk)
+
+	go func() {
+		defer close(chunkChan)
+		defer resp.Body.Close()
+
+		reader := resp.Body
+		buffer := make([]byte, 1024)
+		leftover := ""
+
+		for {
+			n, err := reader.Read(buffer)
+			if n > 0 {
+				leftover += string(buffer[:n])
+
+				// 处理 SSE 事件行
+				lines := strings.Split(leftover, "\n")
+				for i := 0; i < len(lines)-1; i++ {
+					line := strings.TrimSpace(lines[i])
+					if strings.HasPrefix(line, "data: ") {
+						data := line[6:] // 去掉 "data: " 前缀
+
+						var event struct {
+							Type    string `json:"type"`
+							Content string `json:"content"`
+							Sources []struct {
+								Source string  `json:"source"`
+								Score  float64 `json:"score"`
+							} `json:"sources"`
+							Warning string `json:"warning"`
+						}
+
+						if err := json.Unmarshal([]byte(data), &event); err == nil {
+							if event.Type == "content" {
+								chunkChan <- StreamChunk{Content: event.Content}
+							} else if event.Type == "done" {
+								// 转换 sources
+								sources := make([]model.SourceInfo, 0, len(event.Sources))
+								for _, src := range event.Sources {
+									sources = append(sources, model.SourceInfo{
+										Source:        src.Source,
+										SemanticScore: src.Score,
+									})
+								}
+								chunkChan <- StreamChunk{
+									Done:    true,
+									Sources: sources,
+									Warning: event.Warning,
+								}
+							}
+						}
+					}
+				}
+				leftover = lines[len(lines)-1]
+			}
+			if err != nil {
+				break
+			}
+		}
+	}()
+
+	return chunkChan, nil
 }
 
 // Chat 不带历史记录的聊天（兼容旧接口）

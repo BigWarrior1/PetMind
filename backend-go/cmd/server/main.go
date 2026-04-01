@@ -93,6 +93,7 @@ func main() {
 			{
 				messages.GET("/session/:session_id", messageHandler.ListBySession)
 				messages.POST("", messageHandler.Send)
+				messages.POST("/stream", messageHandler.SendStream)
 				messages.POST("/image", messageHandler.SendImage)
 			}
 		}

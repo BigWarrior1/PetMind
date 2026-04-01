@@ -1,11 +1,15 @@
 """
 聊天问答 API
 """
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, AsyncGenerator
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import json
+import asyncio
 
 from app.services.rag_service import get_rag_service
+from app.services.llm_service import get_llm_service
 
 router = APIRouter()
 
@@ -90,6 +94,136 @@ async def chat(request: ChatRequest):
         sources=[Source(**s) for s in result["sources"]],
         warning=result["warning"],
     )
+
+
+# 流式问答系统提示词
+STREAM_CHAT_SYSTEM_PROMPT = """你是一个专业的宠物健康顾问。
+
+你的职责：
+1. 基于提供的知识库内容，准确回答用户关于宠物健康的问题
+2. 当情况危急时（如高烧，呼吸困难、严重出血等），提醒用户立即就医
+3. 始终强调：你的建议仅供参考，不能替代执业兽医的诊断
+
+回答模式（自动判断）：
+1. 如果用户询问的是知识性/科普性问题（如"能不能吃"、"有哪些"、"是什么"），直接回答
+2. 如果用户描述的是症状但缺少关键信息（如只说"狗吐了"没说颜色频率），**先追问关键信息再回答**
+3. 如果用户描述的症状信息充分（如说了颜色、频率、精神状态等），直接给出分析和建议
+
+追问规则：
+- 每次追问不超过 3 个问题
+- 问题要具体：颜色、形状、频率、持续时间、精神状态等
+- 保持友好、专业的语气，像真实问诊一样
+
+综合回答时要包含：
+- 可能的原因分析
+- 严重程度评估（轻微/中等/严重）
+- 建议的护理措施
+- 何时必须就医
+
+回答要求：
+- 基于事实，不要编造信息
+- 语言通俗易懂，适合普通宠物主人理解
+"""
+
+
+@router.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """
+    流式 RAG 智能问答接口
+
+    - 输入问题，流式返回基于知识库的回答
+    - 可选提供宠物信息以获得更精准的回答
+    - 可选提供对话历史以支持多轮对话
+    - 可选提供会话摘要以记住重要信息
+    """
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="问题不能为空")
+
+    async def generate():
+        # 构建上下文
+        context_parts = []
+
+        if request.session_summary:
+            context_parts.append(f"会话摘要：\n{request.session_summary}")
+
+        if request.history:
+            context_parts.append("对话历史：\n" + "\n".join(request.history))
+
+        history_context = "\n\n".join(context_parts)
+        if history_context:
+            history_context = "\n\n" + history_context + "\n"
+
+        # 检索知识库
+        rag_service = get_rag_service()
+        documents, sources = rag_service.retriever.retrieve_with_sources(request.question)
+
+        # 构建宠物信息上下文
+        pet_context = ""
+        if request.pet_info:
+            pet_info = request.pet_info.model_dump() if request.pet_info else {}
+            pet_context = f"\n\n用户宠物信息：\n- 种类：{pet_info.get('species', '未知')}\n- 品种：{pet_info.get('breed', '未知')}\n- 年龄：{pet_info.get('age', '未知')}\n- 体重：{pet_info.get('weight', '未知')}\n"
+
+        # 构建提示词
+        if documents:
+            context = "\n\n".join([doc.page_content for doc in documents])
+            full_prompt = f"""{history_context}基于以下知识库内容回答用户问题：
+
+知识库内容：
+{context}
+{pet_context}
+
+用户问题：{request.question}
+
+请根据知识库内容回答用户问题。"""
+            system_prompt = STREAM_CHAT_SYSTEM_PROMPT
+        else:
+            full_prompt = f"""{history_context}用户问题：{request.question}
+{pet_context}
+
+请回答用户的问题。"""
+            system_prompt = """你是一个专业的宠物健康顾问。
+
+重要说明：
+1. 知识库中没有找到与用户问题相关的专业资料
+2. 请基于你的通用知识回答用户关于宠物健康的问题
+3. 回答时必须明确告知用户"以下回答基于通用知识，知识库中未找到相关资料"
+4. 当情况危急时（如高烧，呼吸困难、严重出血等），提醒用户立即就医
+5. 始终强调：你的建议仅供参考，不能替代执业兽医的诊断
+
+回答要求：
+- 尽量准确，但承认知识的局限性
+- 语言通俗易懂，适合普通宠物主人理解
+- 如果不确定，明确告知用户建议咨询专业兽医
+"""
+
+        # 使用 LLM 流式生成
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=full_prompt),
+        ]
+
+        llm_service = get_llm_service()
+
+        # 流式 yield 每个 token
+        for chunk in llm_service.chat_stream(messages):
+            yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+            await asyncio.sleep(0)  # 让出控制权
+
+        # 流式结束后，发送 sources 和 warning
+        warning = None
+        if documents:
+            # 检查是否需要就医警示
+            warning_keywords = ["高烧", "呼吸困难", "严重出血", "昏迷", "中毒", "骨折", "休克"]
+            for keyword in warning_keywords:
+                if keyword in request.question:
+                    warning = "⚠️ 根据您描述的症状，建议立即带宠物前往最近的宠物医院就诊！"
+                    break
+
+        yield f"data: {json.dumps({'type': 'done', 'sources': sources, 'warning': warning})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.post("/summarize", response_model=SummarizeResponse)

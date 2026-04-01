@@ -138,7 +138,7 @@ async function handleDeleteSession(sessionId: string) {
 }
 
 async function handleSend(content: string) {
-  await chatStore.sendMessage(content)
+  await chatStore.sendMessageStream(content)
 }
 
 async function handleSendImage(file: File) {

@@ -35,7 +35,9 @@ const sources = computed(() => {
 })
 
 const formatTime = (time: string) => {
+  if (!time) return ''
   const date = new Date(time)
+  if (isNaN(date.getTime())) return ''
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 </script>

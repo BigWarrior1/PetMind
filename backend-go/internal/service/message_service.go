@@ -149,6 +149,143 @@ func (s *MessageService) Send(userID, sessionID uuid.UUID, content string) (*mod
 	return userMsg, nil
 }
 
+// MessageStreamChunk 流式消息块（用于消息服务）
+type MessageStreamChunk struct {
+	Content   string                // 文本内容
+	Sources   []model.SourceInfo    // 来源信息
+	Warning   string                // 就医警示
+	Done      bool                  // 是否结束
+	UserMsg   *model.Message        // 用户消息
+	AssistantMsg *model.Message     // AI 回复消息
+	Error     error                // 错误信息
+}
+
+// SendStream 流式发送消息
+func (s *MessageService) SendStream(userID, sessionID uuid.UUID, content string) (<-chan MessageStreamChunk, *model.Message, error) {
+	// 获取历史消息
+	historyMsgs, err := s.messageRepo.ListBySession(sessionID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 如果是第一条消息，自动生成会话标题
+	if len(historyMsgs) == 0 {
+		go s.maybeUpdateTitle(sessionID, userID, content)
+	}
+
+	// 检查是否需要生成摘要
+	totalMessages := len(historyMsgs) + 1
+	if totalMessages >= SummarizeThreshold && (totalMessages%SummarizeThreshold == 1) {
+		go s.maybeSummarize(sessionID, historyMsgs)
+	}
+
+	// 获取 session 及其摘要和宠物信息
+	var sessionSummary string
+	var petInfo *PetInfo
+	session, err := s.sessionRepo.GetByID(sessionID)
+	if err == nil && session != nil {
+		sessionSummary = session.Summary
+
+		if session.PetID != nil && s.petRepo != nil {
+			pet, petErr := s.petRepo.GetByID(*session.PetID)
+			if petErr == nil && pet != nil {
+				petInfo = &PetInfo{
+					Species: pet.Species,
+					Breed:   pet.Breed,
+					Age:     pet.Age,
+					Weight:  pet.Weight,
+				}
+			}
+		}
+	}
+
+	// 压缩历史消息
+	historyMsgs = compressHistory(historyMsgs)
+
+	// 构建历史格式
+	history := make([]string, 0, len(historyMsgs))
+	for _, msg := range historyMsgs {
+		if msg.Role == "user" {
+			history = append(history, "user:"+msg.Content)
+		} else if msg.Role == "assistant" {
+			history = append(history, "assistant:"+msg.Content)
+		}
+	}
+
+	// 保存用户消息
+	userMsg := &model.Message{
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   content,
+	}
+	if err := s.messageRepo.Create(userMsg); err != nil {
+		return nil, nil, err
+	}
+
+	// 如果没有 AI 服务，直接返回
+	if s.aiService == nil {
+		chunkChan := make(chan MessageStreamChunk, 1)
+		chunkChan <- MessageStreamChunk{Done: true, UserMsg: userMsg}
+		close(chunkChan)
+		return chunkChan, userMsg, nil
+	}
+
+	// 启动流式 AI 调用
+	chunkChan := make(chan MessageStreamChunk)
+
+	go func() {
+		defer close(chunkChan)
+
+		// 调用 AI 流式服务
+		aiChan, err := s.aiService.ChatWithHistoryStream(content, petInfo, history, sessionSummary)
+		if err != nil {
+			chunkChan <- MessageStreamChunk{Done: true, UserMsg: userMsg, Error: err}
+			return
+		}
+
+		fullAnswer := ""
+		var sources []model.SourceInfo
+		var warning string
+
+		// 接收流式数据
+		for chunk := range aiChan {
+			if chunk.Error != nil {
+				chunkChan <- MessageStreamChunk{Done: true, UserMsg: userMsg, Error: chunk.Error}
+				return
+			}
+
+			if chunk.Done {
+				sources = chunk.Sources
+				warning = chunk.Warning
+				chunkChan <- MessageStreamChunk{Done: true, UserMsg: userMsg}
+			} else {
+				fullAnswer += chunk.Content
+				chunkChan <- MessageStreamChunk{Content: chunk.Content}
+			}
+		}
+
+		// 保存 AI 回复
+		if fullAnswer != "" {
+			sourcesJSON, _ := json.Marshal(sources)
+			assistantMsg := &model.Message{
+				SessionID: sessionID,
+				Role:      "assistant",
+				Content:   fullAnswer,
+				Sources:   string(sourcesJSON),
+			}
+			if err := s.messageRepo.Create(assistantMsg); err != nil {
+				chunkChan <- MessageStreamChunk{Done: true, UserMsg: userMsg, Error: err}
+				return
+			}
+			chunkChan <- MessageStreamChunk{Done: true, UserMsg: userMsg, AssistantMsg: assistantMsg, Sources: sources, Warning: warning}
+		} else {
+			chunkChan <- MessageStreamChunk{Done: true, UserMsg: userMsg}
+		}
+	}()
+
+	return chunkChan, userMsg, nil
+}
+
 // maybeSummarize 异步生成会话摘要
 func (s *MessageService) maybeSummarize(sessionID uuid.UUID, allMessages []model.Message) {
 	if s.aiService == nil || s.sessionRepo == nil {
