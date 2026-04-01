@@ -344,8 +344,20 @@ func (s *MessageService) maybeSummarize(sessionID uuid.UUID, allMessages []model
 }
 
 // maybeUpdateTitle 异步生成会话标题（基于第一条用户消息）
+// 注意：宠物专属会话不调用此函数，宠物会话标题在前端创建时已固定
 func (s *MessageService) maybeUpdateTitle(sessionID, userID uuid.UUID, firstMessage string) {
 	if s.aiService == nil || s.sessionRepo == nil {
+		return
+	}
+
+	// 获取 session，检查是否是宠物专属会话
+	session, err := s.sessionRepo.GetByID(sessionID)
+	if err != nil {
+		return
+	}
+
+	// 宠物专属会话不更新标题（标题已固定为宠物名字）
+	if session.PetID != nil {
 		return
 	}
 
@@ -356,10 +368,6 @@ func (s *MessageService) maybeUpdateTitle(sessionID, userID uuid.UUID, firstMess
 	}
 
 	// 更新 session 标题
-	session, err := s.sessionRepo.GetByID(sessionID)
-	if err != nil {
-		return
-	}
 	session.Title = title
 	session.UpdatedAt = time.Now()
 	s.sessionRepo.Update(session)

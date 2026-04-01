@@ -45,6 +45,13 @@ watch(() => chatStore.messages, () => {
 
 // 创建普通会话
 async function handleCreateSession() {
+  // 检查是否已有"新对话"的空会话
+  const existingNewSession = chatStore.normalSessions.find(s => s.title === '新对话')
+  if (existingNewSession) {
+    chatStore.setCurrentSession(existingNewSession)
+    return
+  }
+
   const session = await chatStore.createSession()
   chatStore.setCurrentSession(session)
 }
