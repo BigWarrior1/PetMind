@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 const request = axios.create({
   baseURL: '/api/v1',
-  timeout: 30000
+  timeout: 120000  // 120 秒，适应 AI 回复较慢的情况
 })
 
 // 请求拦截器：添加 JWT token
