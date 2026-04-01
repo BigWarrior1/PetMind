@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { marked } from 'marked'
 import { ChatDotRound, User } from '@element-plus/icons-vue'
 import type { Message } from '@/api/messages'
 
@@ -8,6 +9,12 @@ const props = defineProps<{
 }>()
 
 const isUser = computed(() => props.message.role === 'user')
+
+// 渲染 Markdown 内容
+const renderedContent = computed(() => {
+  if (!props.message.content) return ''
+  return marked(props.message.content)
+})
 
 const imageUrls = computed(() => {
   if (!props.message.image_urls) return []
@@ -54,7 +61,7 @@ const formatTime = (time: string) => {
       </div>
 
       <!-- 文字内容 -->
-      <div class="message-text">{{ message.content }}</div>
+      <div class="message-text" v-html="renderedContent"></div>
 
       <!-- 来源信息 -->
       <div v-if="sources.length > 0 && !isUser" class="message-sources">
@@ -143,6 +150,103 @@ const formatTime = (time: string) => {
   background: #f0f2f5;
   color: #333;
   border-bottom-left-radius: 4px;
+}
+
+/* Markdown 样式 */
+.message-text :deep(h1),
+.message-text :deep(h2),
+.message-text :deep(h3) {
+  margin: 0.5em 0;
+  font-weight: 600;
+}
+
+.message-text :deep(h1) { font-size: 1.25em; }
+.message-text :deep(h2) { font-size: 1.1em; }
+.message-text :deep(h3) { font-size: 1em; }
+
+.message-text :deep(p) {
+  margin: 0.5em 0;
+}
+
+.message-text :deep(p:first-child) {
+  margin-top: 0;
+}
+
+.message-text :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.message-text :deep(ul),
+.message-text :deep(ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.message-text :deep(li) {
+  margin: 0.25em 0;
+}
+
+.message-text :deep(strong) {
+  font-weight: 600;
+}
+
+.message-text :deep(em) {
+  font-style: italic;
+}
+
+.message-text :deep(code) {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: monospace;
+}
+
+.message-user .message-text :deep(code) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.message-text :deep(pre) {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.message-user .message-text :deep(pre) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.message-text :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.message-text :deep(blockquote) {
+  margin: 0.5em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.03);
+  color: inherit;
+}
+
+.message-user .message-text :deep(blockquote) {
+  border-left-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.message-text :deep(a) {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.message-text :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.message-user .message-text :deep(a) {
+  color: #fff;
 }
 
 .message-images {
