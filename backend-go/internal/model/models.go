@@ -34,12 +34,14 @@ type Pet struct {
 
 // 会话
 type Session struct {
-	ID        uuid.UUID `json:"id" gorm:"type:text;primaryKey"`
-	UserID    uuid.UUID `json:"user_id" gorm:"type:text;not null;index"`
-	PetID     *uuid.UUID `json:"pet_id" gorm:"type:text;index"` // 可选，关联宠物
-	Title     string    `json:"title" gorm:"not null"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID               uuid.UUID  `json:"id" gorm:"type:text;primaryKey"`
+	UserID           uuid.UUID `json:"user_id" gorm:"type:text;not null;index"`
+	PetID            *uuid.UUID `json:"pet_id" gorm:"type:text;index"` // 可选，关联宠物
+	Title            string    `json:"title" gorm:"not null"`
+	Summary          string    `json:"summary" gorm:"type:text"`           // 会话摘要
+	SummaryUpdatedAt *time.Time `json:"summary_updated_at"`                  // 摘要更新时间
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // 消息

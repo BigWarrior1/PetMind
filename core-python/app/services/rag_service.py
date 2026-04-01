@@ -2,7 +2,7 @@
 RAG 服务
 整合检索与生成
 """
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from app.rag.retriever import RAGRetriever
 from app.services.llm_service import get_llm_service
 from app.core.config import RAG_TOP_K
@@ -38,6 +38,27 @@ FALLBACK_SYSTEM_PROMPT = """你是一个专业的宠物健康顾问。
 - 如果不确定，明确告知用户建议咨询专业兽医
 """
 
+# 摘要生成系统提示词
+SUMMARIZE_SYSTEM_PROMPT = """你是一个宠物对话摘要助手。
+
+你的任务是将用户与助手的对话历史压缩成一个简洁的摘要。
+
+摘要要求：
+1. 提取并记录：宠物名字、种类（猫/狗）、品种、年龄，体重等基本信息
+2. 记录讨论过的健康问题、症状或疾病（如果有）
+3. 记录用户的特殊偏好或要求（如果有）
+4. 记录正在进行的讨论话题或未解决的问题
+5. 摘要应该简洁，最多5-6句话
+
+输出格式：
+- 使用中文
+- 使用自然段落，不要使用列表或结构化格式
+- 只需输出摘要内容，不要有任何前缀或解释
+
+示例：
+"用户有一只3岁的金毛犬叫旺财，体重30公斤。讨论过狗狗最近食欲下降的问题，怀疑可能是消化不良。用户提到旺财最近有点嗜睡。正在等待用户反馈喂食益生菌后的效果。"
+"""
+
 
 class RAGService:
     """RAG 服务类"""
@@ -50,6 +71,8 @@ class RAGService:
         self,
         question: str,
         pet_info: Optional[Dict] = None,
+        history: Optional[List[str]] = None,
+        session_summary: Optional[str] = None,
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     ) -> Dict:
         """
@@ -58,6 +81,8 @@ class RAGService:
         Args:
             question: 用户问题
             pet_info: 宠物信息（可选）
+            history: 对话历史（可选），格式 ["user:xxx", "assistant:xxx"]
+            session_summary: 会话摘要（可选），包含之前对话的重要信息
             system_prompt: 系统提示词
 
         Returns:
@@ -67,6 +92,21 @@ class RAGService:
                 "warning": "就医警示（如有）"
             }
         """
+        # 0. 构建上下文（按优先级）
+        context_parts = []
+
+        # 优先添加 session summary
+        if session_summary:
+            context_parts.append(f"会话摘要：\n{session_summary}")
+
+        # 添加对话历史
+        if history:
+            context_parts.append("对话历史：\n" + "\n".join(history))
+
+        history_context = "\n\n".join(context_parts)
+        if history_context:
+            history_context = "\n\n" + history_context + "\n"
+
         # 1. 检索相关文档
         documents, sources = self.retriever.retrieve_with_sources(question)
 
@@ -77,7 +117,7 @@ class RAGService:
 
         if not documents:
             # 降级方案：知识库没有相关内容时，让 LLM 用通用知识回答
-            fallback_prompt = f"""用户问题：{question}
+            fallback_prompt = f"""{history_context}用户问题：{question}
 {pet_context}
 
 请回答用户的问题。"""
@@ -96,7 +136,7 @@ class RAGService:
         context = "\n\n".join([doc.page_content for doc in documents])
 
         # 4. 构建完整提示词
-        full_prompt = f"""基于以下知识库内容回答用户问题：
+        full_prompt = f"""{history_context}基于以下知识库内容回答用户问题：
 
 知识库内容：
 {context}
@@ -131,6 +171,36 @@ class RAGService:
                 return "⚠️ 根据您描述的症状，建议立即带宠物前往最近的宠物医院就诊！"
 
         return None
+
+    def summarize(self, messages: List[str]) -> str:
+        """
+        生成会话摘要
+
+        Args:
+            messages: 对话历史，格式 ["user:xxx", "assistant:xxx", ...]
+
+        Returns:
+            压缩后的摘要字符串
+        """
+        if not messages:
+            return ""
+
+        # 构建对话历史文本
+        history_text = "\n".join(messages)
+
+        # 构建提示词
+        prompt = f"""对话历史：
+{history_text}
+
+请生成上述对话的摘要："""
+
+        # 调用 LLM 生成摘要
+        summary = self.llm_service.chat_with_prompt(
+            system_prompt=SUMMARIZE_SYSTEM_PROMPT,
+            user_prompt=prompt,
+        )
+
+        return summary.strip()
 
 
 # 全局单例

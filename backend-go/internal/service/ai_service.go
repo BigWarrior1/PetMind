@@ -38,14 +38,19 @@ type PetInfo struct {
 }
 
 type AIRequestBody struct {
-	Question string    `json:"question"`
-	PetInfo  *PetInfo  `json:"pet_info,omitempty"`
+	Question       string    `json:"question"`
+	PetInfo        *PetInfo  `json:"pet_info,omitempty"`
+	History        []string  `json:"history,omitempty"`         // 对话历史 [ "user:xxx", "assistant:xxx", ... ]
+	SessionSummary string    `json:"session_summary,omitempty"`  // 会话摘要
 }
 
-func (s *AIService) Chat(question string, petInfo *PetInfo) (*model.AIResponse, error) {
+// ChatWithHistory 带历史记录的聊天
+func (s *AIService) ChatWithHistory(question string, petInfo *PetInfo, history []string, sessionSummary string) (*model.AIResponse, error) {
 	reqBody := AIRequestBody{
-		Question: question,
-		PetInfo:  petInfo,
+		Question:       question,
+		PetInfo:        petInfo,
+		History:        history,
+		SessionSummary: sessionSummary,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -99,6 +104,52 @@ func (s *AIService) Chat(question string, petInfo *PetInfo) (*model.AIResponse, 
 		Sources: sources,
 		Warning: result.Warning,
 	}, nil
+}
+
+// Chat 不带历史记录的聊天（兼容旧接口）
+func (s *AIService) Chat(question string, petInfo *PetInfo) (*model.AIResponse, error) {
+	return s.ChatWithHistory(question, petInfo, nil, "")
+}
+
+// Summarize 调用 Python 的 /summarize 接口生成会话摘要
+func (s *AIService) Summarize(messages []string) (string, error) {
+	type SummarizeRequest struct {
+		Messages []string `json:"messages"`
+	}
+	type SummarizeResponse struct {
+		Summary string `json:"summary"`
+	}
+
+	reqBody := SummarizeRequest{Messages: messages}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/summarize", s.apiURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("调用AI服务失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("AI服务返回错误: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var result SummarizeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	return result.Summary, nil
 }
 
 // AnalyzeImage 调用 Python FastAPI 的图片分析端点

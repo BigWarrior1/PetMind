@@ -45,15 +45,31 @@ export const useChatStore = defineStore('chat', () => {
   async function sendMessage(content: string) {
     if (!currentSession.value) return
 
+    // 1. 立即添加用户消息（乐观更新）
+    const tempUserMessage: Message = {
+      id: `temp-${Date.now()}`,
+      session_id: currentSession.value.id,
+      role: 'user',
+      content,
+      image_urls: '[]',
+      sources: '[]',
+      created_at: new Date().toISOString()
+    }
+    messages.value.push(tempUserMessage)
+
     loading.value = true
     try {
+      // 2. 调用 API
       await messagesApi.send({
         session_id: currentSession.value.id,
         content
       })
 
-      // 再次获取消息（包含AI回复）
+      // 3. 获取完整消息列表
       await fetchMessages(currentSession.value.id)
+    } catch (error) {
+      // 4. 失败时移除临时消息（axios interceptor 已经显示了错误提示）
+      messages.value = messages.value.filter(m => !m.id.startsWith('temp-'))
     } finally {
       loading.value = false
     }
@@ -61,6 +77,18 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendImage(file: File, question: string = '请分析这张图片中的宠物健康状况') {
     if (!currentSession.value) return
+
+    // 1. 立即添加用户消息（乐观更新，带图片）
+    const tempUserMessage: Message = {
+      id: `temp-${Date.now()}`,
+      session_id: currentSession.value.id,
+      role: 'user',
+      content: question,
+      image_urls: JSON.stringify([URL.createObjectURL(file)]),
+      sources: '[]',
+      created_at: new Date().toISOString()
+    }
+    messages.value.push(tempUserMessage)
 
     loading.value = true
     try {
@@ -75,6 +103,9 @@ export const useChatStore = defineStore('chat', () => {
       if (currentSession.value) {
         await fetchMessages(currentSession.value.id)
       }
+    } catch (error) {
+      // 失败时移除临时消息
+      messages.value = messages.value.filter(m => !m.id.startsWith('temp-'))
     } finally {
       loading.value = false
     }

@@ -3,10 +3,14 @@ LLM 服务
 调用阿里百炼 qwen3.5-plus 模型（统一多模态：文本 + 图片）
 """
 import base64
+import os
 from typing import Optional, List
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 from app.core.config import DASHSCOPE_API_KEY
+
+# LLM 调用超时（秒）
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
 
 # 模型配置
 DEFAULT_MODEL = "qwen3.5-plus"  # 统一多模态模型
@@ -37,6 +41,7 @@ class LLMService:
                 api_key=self.api_key,
                 base_url=self.base_url,
                 temperature=0.7,
+                request_timeout=LLM_TIMEOUT,
             )
         return self._chat_model
 
