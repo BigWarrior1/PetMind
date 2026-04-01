@@ -111,6 +111,14 @@ func (r *PetRepository) List(userID uuid.UUID) ([]model.Pet, error) {
 	return pets, nil
 }
 
+func (r *PetRepository) GetByUserAndName(userID uuid.UUID, name string) (*model.Pet, error) {
+	var pet model.Pet
+	if err := r.db.Where("user_id = ? AND name = ?", userID, name).First(&pet).Error; err != nil {
+		return nil, err
+	}
+	return &pet, nil
+}
+
 func (r *PetRepository) Update(pet *model.Pet) error {
 	return r.db.Save(pet).Error
 }
@@ -158,6 +166,18 @@ func (r *SessionRepository) Update(session *model.Session) error {
 	return r.db.Save(session).Error
 }
 
+func (r *SessionRepository) GetByUserAndPet(userID uuid.UUID, petID uuid.UUID) (*model.Session, error) {
+	var session model.Session
+	if err := r.db.Where("user_id = ? AND pet_id = ?", userID, petID).First(&session).Error; err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *SessionRepository) DeleteByPetID(petID uuid.UUID, userID uuid.UUID) error {
+	return r.db.Where("pet_id = ? AND user_id = ?", petID, userID).Delete(&model.Session{}).Error
+}
+
 // Message Repository
 
 type MessageRepository struct {
@@ -179,6 +199,10 @@ func (r *MessageRepository) ListBySession(sessionID uuid.UUID) ([]model.Message,
 		return nil, err
 	}
 	return messages, nil
+}
+
+func (r *MessageRepository) DeleteBySessionID(sessionID uuid.UUID) error {
+	return r.db.Where("session_id = ?", sessionID).Delete(&model.Message{}).Error
 }
 
 // File Store

@@ -152,6 +152,47 @@ func (s *AIService) Summarize(messages []string) (string, error) {
 	return result.Summary, nil
 }
 
+// GenerateTitle 调用 Python 生成会话标题
+func (s *AIService) GenerateTitle(firstMessage string) (string, error) {
+	type GenerateTitleRequest struct {
+		Message string `json:"message"`
+	}
+	type GenerateTitleResponse struct {
+		Title string `json:"title"`
+	}
+
+	reqBody := GenerateTitleRequest{Message: firstMessage}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/generate_title", s.apiURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("调用AI服务失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("AI服务返回错误: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var result GenerateTitleResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	return result.Title, nil
+}
+
 // AnalyzeImage 调用 Python FastAPI 的图片分析端点
 func (s *AIService) AnalyzeImage(imagePath, question string) (*model.AIResponse, error) {
 	// 读取图片文件

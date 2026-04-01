@@ -49,6 +49,16 @@ class SummarizeResponse(BaseModel):
     summary: str
 
 
+class GenerateTitleRequest(BaseModel):
+    """生成标题请求"""
+    message: str  # 第一条用户消息
+
+
+class GenerateTitleResponse(BaseModel):
+    """生成标题响应"""
+    title: str
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
@@ -98,3 +108,37 @@ async def summarize(request: SummarizeRequest):
     summary = rag_service.summarize(request.messages)
 
     return SummarizeResponse(summary=summary)
+
+
+# 生成标题的系统提示词
+TITLE_SYSTEM_PROMPT = """你是一个会话标题生成助手。
+
+你的任务是根据用户的第一条消息生成一个简短的会话标题。
+
+要求：
+1. 标题长度：10-20个字
+2. 标题应该概括用户询问的核心主题
+3. 只返回标题，不要有任何解释、前缀或标点符号
+
+示例：
+- 用户消息："我的狗最近食欲不振怎么办" → 生成标题：狗狗食欲不振咨询
+- 用户消息："猫咪掉毛很严重" → 生成标题：猫咪掉毛问题
+- 用户消息："请教我如何给狗洗澡" → 生成标题：狗狗洗澡方法"""
+
+
+@router.post("/generate_title", response_model=GenerateTitleResponse)
+async def generate_title(request: GenerateTitleRequest):
+    """
+    生成会话标题接口
+
+    根据用户的第一条消息生成简短的会话标题（10-20字）
+    """
+    from app.services.llm_service import get_llm_service
+
+    llm_service = get_llm_service()
+    title = llm_service.chat_with_prompt(
+        system_prompt=TITLE_SYSTEM_PROMPT,
+        user_prompt=f"用户第一条消息：{request.message}\n\n请生成会话标题：",
+    )
+
+    return GenerateTitleResponse(title=title.strip())

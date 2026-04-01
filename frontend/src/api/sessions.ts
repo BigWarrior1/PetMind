@@ -11,7 +11,7 @@ export interface Session {
 
 export interface CreateSessionRequest {
   pet_id?: string
-  title: string
+  title?: string
 }
 
 export const sessionsApi = {

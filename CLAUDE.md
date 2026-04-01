@@ -20,7 +20,7 @@ Vue 3 Frontend → Go Gin Gateway → Python FastAPI (RAG Engine) → Chroma DB 
 
 | 模块 | 技术栈 | 状态 |
 |------|--------|------|
-| `frontend/` | Vue 3 + Vite + TailwindCSS | 规划中 |
+| `frontend/` | Vue 3 + Vite + Element Plus + Pinia | ✅ MVP 完成 |
 | `backend-go/` | Go + Gin + GORM + SQLite | ✅ 已完成 |
 | `core-python/` | Python + FastAPI + LangChain + Chroma | ✅ 已完成 |
 
@@ -200,8 +200,36 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - [x] **Phase 1**: Python 核心 AI 引擎 (RAG 问答流程) ✅
 - [x] **Phase 1.5**: 多模态扩展 (qwen3.5-plus 图片分析) ✅
 - [x] **Phase 2**: Go 后端基础框架搭建 ✅
-- [ ] **Phase 3**: 前端 MVP 版本开发
+- [x] **Phase 3**: 前端 MVP 版本开发 ✅
 - [ ] **Phase 4**: 前后端联调与完整链路测试
+
+## 已完成功能 (Phase 3 - 前端 MVP)
+
+### 用户消息乐观更新
+- 用户发送消息后立即显示在界面，无需等待 AI 回复
+- 发送失败时自动移除临时消息
+
+### 会话历史压缩总结
+- 消息数量达到 20 条时，自动将早期消息压缩为摘要
+- 摘要保存在 Session.Summary 字段
+- AI 回复时携带摘要，保持长期上下文记忆
+
+### 会话类型分类
+- **普通对话**：用户可询问 AI 任何事情
+- **宠物专属对话**：关联用户宠物，每个宠物只能创建一个
+- 会话列表分为上下两部分（宠物专属 1/3 + 普通 2/3）
+
+### 自动生成会话标题
+- 普通对话：第一条消息发送后自动生成简短标题（10-20字）
+- 宠物专属对话：使用 `${宠物名字}的专属顾问` 作为标题
+
+### 宠物选择对话框
+- 卡片式 UI，显示宠物头像、名字、品种
+- hover 效果提升交互体验
+
+### LLM 调用超时保护
+- Python LLM 服务默认 120 秒超时
+- 避免 API 响应慢时无限等待
 
 ## 注意事项
 

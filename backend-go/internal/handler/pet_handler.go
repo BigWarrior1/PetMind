@@ -30,6 +30,10 @@ func (h *PetHandler) Create(c *gin.Context) {
 
 	pet, err := h.petService.Create(userID, &req)
 	if err != nil {
+		if err == service.ErrPetNameExists {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

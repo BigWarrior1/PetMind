@@ -36,9 +36,9 @@ func main() {
 
 	// 初始化 Service
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
-	petService := service.NewPetService(petRepo)
-	sessionService := service.NewSessionService(sessionRepo)
-	messageService := service.NewMessageService(messageRepo, sessionRepo, store)
+	petService := service.NewPetService(petRepo, sessionRepo)
+	sessionService := service.NewSessionService(sessionRepo, messageRepo)
+	messageService := service.NewMessageService(messageRepo, sessionRepo, petRepo, store)
 	aiService := service.NewAIService(cfg.AIAPIURL)
 	messageService.SetAIService(aiService)
 

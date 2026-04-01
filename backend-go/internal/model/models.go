@@ -19,8 +19,8 @@ type User struct {
 // 宠物档案
 type Pet struct {
 	ID        uuid.UUID `json:"id" gorm:"type:text;primaryKey"`
-	UserID    uuid.UUID `json:"user_id" gorm:"type:text;not null;index"`
-	Name      string    `json:"name" gorm:"not null"`
+	UserID    uuid.UUID `json:"user_id" gorm:"type:text;not null;uniqueIndex:idx_user_pet_name"`
+	Name      string    `json:"name" gorm:"not null;uniqueIndex:idx_user_pet_name"`
 	Species   string    `json:"species"`  // 种类：狗、猫
 	Breed     string    `json:"breed"`    // 品种
 	Age       string    `json:"age"`      // 年龄
@@ -103,7 +103,7 @@ type UpdatePetRequest struct {
 // 创建会话请求
 type CreateSessionRequest struct {
 	PetID *uuid.UUID `json:"pet_id"`
-	Title string    `json:"title" binding:"required"`
+	Title string    `json:"title"`
 }
 
 // 发送消息请求

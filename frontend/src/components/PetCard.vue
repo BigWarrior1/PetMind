@@ -3,8 +3,6 @@ import { Edit, Delete } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import type { Pet } from '@/api/pets'
 
-// Icons are used via template, keep imports for icon components
-
 const props = defineProps<{
   pet: Pet
 }>()
@@ -14,10 +12,27 @@ const emit = defineEmits<{
   (e: 'delete', petId: string): void
 }>()
 
+function getSpeciesIcon(species: string): string {
+  switch (species) {
+    case '狗': return '🐶'
+    case '猫': return '🐱'
+    case '兔子': return '🐰'
+    case '仓鼠': return '🐹'
+    case '龙猫': return '🐭'
+    case '荷兰猪': return '🐷'
+    case '鸟类': return '🐦'
+    case '乌龟': return '🐢'
+    case '守宫': return '🦎'
+    case '蛇': return '🐍'
+    case '鱼': return '🐟'
+    default: return '🐾'
+  }
+}
+
 async function handleDelete() {
   try {
     await ElMessageBox.confirm(
-      `确定删除宠物 "${props.pet.name}" 吗？`,
+      `确定删除宠物 "${props.pet.name}" 吗？相关会话也会被删除。`,
       '删除宠物',
       {
         confirmButtonText: '删除',
@@ -33,67 +48,63 @@ async function handleDelete() {
 </script>
 
 <template>
-  <el-card class="pet-card" shadow="hover">
-    <div class="pet-header">
+  <div class="pet-card">
+    <div class="card-header">
       <div class="pet-avatar">
-        {{ pet.species === '猫' ? '🐱' : pet.species === '狗' ? '🐕' : '🐾' }}
+        {{ getSpeciesIcon(pet.species) }}
       </div>
       <div class="pet-info">
         <h3 class="pet-name">{{ pet.name }}</h3>
-        <span class="pet-species">{{ pet.species || '未知' }} · {{ pet.breed || '未知品种' }}</span>
+        <span class="pet-species">{{ pet.species }}{{ pet.breed ? ' · ' + pet.breed : '' }}</span>
       </div>
     </div>
 
-    <div class="pet-details">
-      <div v-if="pet.age" class="detail-item">
+    <div class="card-details" v-if="pet.age || pet.weight || pet.gender">
+      <div class="detail-item" v-if="pet.age">
         <span class="detail-label">年龄</span>
         <span class="detail-value">{{ pet.age }}</span>
       </div>
-      <div v-if="pet.weight" class="detail-item">
+      <div class="detail-item" v-if="pet.weight">
         <span class="detail-label">体重</span>
         <span class="detail-value">{{ pet.weight }}</span>
       </div>
-      <div v-if="pet.gender" class="detail-item">
+      <div class="detail-item" v-if="pet.gender">
         <span class="detail-label">性别</span>
         <span class="detail-value">{{ pet.gender }}</span>
       </div>
     </div>
 
-    <div v-if="pet.notes" class="pet-notes">
+    <div class="card-notes" v-if="pet.notes">
       {{ pet.notes }}
     </div>
 
-    <div class="pet-actions">
-      <el-button
-        :icon="Edit"
-        size="small"
-        @click="emit('edit', pet)"
-      >
+    <div class="card-actions">
+      <el-button size="small" @click="emit('edit', pet)">
+        <Edit style="margin-right: 4px" />
         编辑
       </el-button>
-      <el-button
-        :icon="Delete"
-        size="small"
-        type="danger"
-        @click="handleDelete"
-      >
+      <el-button size="small" type="danger" @click="handleDelete">
+        <Delete style="margin-right: 4px" />
         删除
       </el-button>
     </div>
-  </el-card>
+  </div>
 </template>
 
 <style scoped>
 .pet-card {
+  background: #fff;
   border-radius: 12px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  padding: 20px;
+  border: 1px solid #eee;
+  transition: box-shadow 0.2s;
 }
 
 .pet-card:hover {
-  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-.pet-header {
+.card-header {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -101,14 +112,14 @@ async function handleDelete() {
 }
 
 .pet-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 24px;
 }
 
 .pet-info {
@@ -117,9 +128,9 @@ async function handleDelete() {
 
 .pet-name {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: #1a1a1a;
 }
 
 .pet-species {
@@ -127,46 +138,42 @@ async function handleDelete() {
   color: #999;
 }
 
-.pet-details {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+.card-details {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #f5f5f5;
+  border-bottom: 1px solid #f5f5f5;
 }
 
 .detail-item {
-  text-align: center;
-  padding: 8px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .detail-label {
-  display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: #999;
-  margin-bottom: 2px;
 }
 
 .detail-value {
-  font-size: 13px;
-  color: #333;
+  font-size: 14px;
+  color: #1a1a1a;
   font-weight: 500;
 }
 
-.pet-notes {
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 8px;
+.card-notes {
+  padding: 12px 0;
   font-size: 13px;
   color: #666;
-  margin-bottom: 12px;
   line-height: 1.5;
 }
 
-.pet-actions {
+.card-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  padding-top: 12px;
 }
 </style>

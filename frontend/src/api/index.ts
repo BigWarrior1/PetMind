@@ -43,6 +43,9 @@ request.interceptors.response.use(
         case 404:
           ElMessage.error('请求资源不存在')
           break
+        case 409:
+          ElMessage.error(message)  // 显示服务端返回的错误信息，如"该宠物名字已存在"
+          break
         case 500:
           ElMessage.error('服务器错误')
           break

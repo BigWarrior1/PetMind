@@ -47,6 +47,27 @@ const rules: FormRules = {
   ]
 }
 
+const speciesOptions = [
+  { value: '狗', label: '🐶 狗' },
+  { value: '猫', label: '🐱 猫' },
+  { value: '兔子', label: '🐰 兔子' },
+  { value: '仓鼠', label: '🐹 仓鼠' },
+  { value: '龙猫', label: '🐭 龙猫' },
+  { value: '荷兰猪', label: '🐷 荷兰猪' },
+  { value: '鸟类', label: '🐦 鸟类' },
+  { value: '乌龟', label: '🐢 乌龟' },
+  { value: '守宫', label: '🦎 守宫' },
+  { value: '蛇', label: '🐍 蛇' },
+  { value: '鱼', label: '🐟 鱼' },
+  { value: '其他', label: '🐾 其他' }
+]
+
+const genderOptions = [
+  { value: '公', label: '公' },
+  { value: '母', label: '母' },
+  { value: '未知', label: '未知' }
+]
+
 onMounted(() => {
   petsStore.fetchPets()
 })
@@ -95,7 +116,7 @@ async function handleSubmit() {
           ElMessage.success('宠物信息已更新')
         } else {
           await petsStore.createPet(form.value)
-          ElMessage.success('宠物添加成功')
+          ElMessage.success('添加成功')
         }
         dialogVisible.value = false
       } catch {
@@ -114,32 +135,34 @@ async function handleDelete(petId: string) {
 </script>
 
 <template>
-  <div class="pets-layout">
+  <div class="pets-page">
     <!-- 顶栏 -->
-    <header class="pets-header">
+    <header class="page-header">
       <div class="header-left">
-        <el-button :icon="ArrowLeft" @click="router.push('/')">
-          返回聊天
+        <el-button text @click="router.push('/')">
+          <ArrowLeft style="margin-right: 4px" />
+          返回
         </el-button>
-        <h1 class="page-title">宠物管理</h1>
+        <h1 class="page-title">宠物档案</h1>
       </div>
-      <el-button type="primary" :icon="Plus" @click="openAddDialog">
+      <el-button type="primary" @click="openAddDialog">
+        <Plus style="margin-right: 4px" />
         添加宠物
       </el-button>
     </header>
 
-    <!-- 宠物列表 -->
-    <main class="pets-content">
+    <!-- 内容区 -->
+    <main class="page-content">
+      <!-- 空状态 -->
       <div v-if="petsStore.pets.length === 0" class="empty-state">
         <div class="empty-icon">🐾</div>
-        <h3>暂无宠物</h3>
-        <p>添加您的宠物，开始智能健康问答</p>
-        <el-button type="primary" @click="openAddDialog">
-          添加第一个宠物
-        </el-button>
+        <h3>还没有宠物</h3>
+        <p>添加宠物后，可以获得专属的健康顾问服务</p>
+        <el-button type="primary" @click="openAddDialog">添加宠物</el-button>
       </div>
 
-      <div v-else class="pets-grid">
+      <!-- 宠物列表 -->
+      <div v-else class="pets-list">
         <PetCard
           v-for="pet in petsStore.pets"
           :key="pet.id"
@@ -154,58 +177,51 @@ async function handleDelete(petId: string) {
     <ElDialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="500px"
+      width="420px"
       :close-on-click-modal="false"
+      class="pet-dialog"
     >
       <ElForm
         ref="formRef"
         :model="form"
         :rules="rules"
-        label-width="80px"
+        label-position="top"
       >
         <ElFormItem label="名称" prop="name">
-          <ElInput v-model="form.name" placeholder="请输入宠物名称" />
+          <el-input v-model="form.name" placeholder="请输入宠物名称" />
         </ElFormItem>
 
         <ElFormItem label="种类" prop="species">
-          <ElSelect v-model="form.species" placeholder="请选择宠物种类" style="width: 100%">
-            <ElOption label="狗" value="狗" />
-            <ElOption label="猫" value="猫" />
-            <ElOption label="其他" value="其他" />
-          </ElSelect>
+          <el-select v-model="form.species" placeholder="请选择" style="width: 100%">
+            <el-option v-for="item in speciesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </ElFormItem>
 
-        <ElFormItem label="品种" prop="breed">
-          <ElInput v-model="form.breed" placeholder="请输入品种" />
+        <ElFormItem label="品种">
+          <el-input v-model="form.breed" placeholder="如：金毛、橘猫" />
         </ElFormItem>
 
-        <ElFormItem label="年龄" prop="age">
-          <ElInput v-model="form.age" placeholder="如：2岁" />
+        <div class="form-row">
+          <ElFormItem label="年龄" class="form-half">
+            <el-input v-model="form.age" placeholder="2岁" />
+          </ElFormItem>
+          <ElFormItem label="体重" class="form-half">
+            <el-input v-model="form.weight" placeholder="5kg" />
+          </ElFormItem>
+        </div>
+
+        <ElFormItem label="性别">
+          <el-select v-model="form.gender" placeholder="请选择" style="width: 100%">
+            <el-option v-for="item in genderOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </ElFormItem>
 
-        <ElFormItem label="体重" prop="weight">
-          <ElInput v-model="form.weight" placeholder="如：5kg" />
+        <ElFormItem label="生日">
+          <el-input v-model="form.birthday" placeholder="如：2022-01-01" />
         </ElFormItem>
 
-        <ElFormItem label="性别" prop="gender">
-          <ElSelect v-model="form.gender" placeholder="请选择性别" style="width: 100%">
-            <ElOption label="公" value="公" />
-            <ElOption label="母" value="母" />
-            <ElOption label="未知" value="未知" />
-          </ElSelect>
-        </ElFormItem>
-
-        <ElFormItem label="生日" prop="birthday">
-          <ElInput v-model="form.birthday" placeholder="如：2022-01-01" />
-        </ElFormItem>
-
-        <ElFormItem label="备注" prop="notes">
-          <ElInput
-            v-model="form.notes"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入备注信息"
-          />
+        <ElFormItem label="备注">
+          <el-input v-model="form.notes" type="textarea" :rows="2" placeholder="记录一些备注信息" />
         </ElFormItem>
       </ElForm>
 
@@ -220,18 +236,21 @@ async function handleDelete(petId: string) {
 </template>
 
 <style scoped>
-.pets-layout {
+.pets-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #f7f8fa;
 }
 
-.pets-header {
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   padding: 16px 24px;
-  background: white;
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid #eee;
 }
 
 .header-left {
@@ -242,43 +261,80 @@ async function handleDelete(petId: string) {
 
 .page-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: #1a1a1a;
 }
 
-.pets-content {
+.page-content {
   padding: 24px;
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
 .empty-state {
   text-align: center;
   padding: 80px 20px;
-  background: white;
+  background: #fff;
   border-radius: 12px;
 }
 
 .empty-icon {
-  font-size: 64px;
+  font-size: 48px;
   margin-bottom: 16px;
 }
 
 .empty-state h3 {
   margin: 0 0 8px;
-  font-size: 18px;
-  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .empty-state p {
-  margin: 0 0 24px;
+  margin: 0 0 20px;
   color: #999;
+  font-size: 14px;
 }
 
-.pets-grid {
+.pets-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Dialog Styles */
+:deep(.pet-dialog) {
+  border-radius: 12px;
+}
+
+:deep(.pet-dialog .el-dialog__header) {
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
+  margin: 0;
+}
+
+:deep(.pet-dialog .el-dialog__title) {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+:deep(.pet-dialog .el-dialog__body) {
+  padding: 24px;
+}
+
+:deep(.pet-dialog .el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-half {
+  flex: 1;
 }
 </style>

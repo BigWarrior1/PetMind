@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { sessionsApi } from '@/api/sessions'
 import { messagesApi, type Message } from '@/api/messages'
 import type { Session } from '@/api/sessions'
@@ -10,12 +10,29 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<Message[]>([])
   const loading = ref(false)
 
+  // 计算属性：宠物专属会话
+  const petSessions = computed(() =>
+    sessions.value.filter(s => s.pet_id != null)
+  )
+
+  // 计算属性：普通会话
+  const normalSessions = computed(() =>
+    sessions.value.filter(s => s.pet_id == null)
+  )
+
   async function fetchSessions() {
     sessions.value = await sessionsApi.list()
   }
 
-  async function createSession(title: string, petId?: string) {
-    const session = await sessionsApi.create({ title, pet_id: petId })
+  async function createSession(petId?: string) {
+    // 普通对话不传 petId，宠物专属对话传 petId
+    const session = await sessionsApi.create({ pet_id: petId })
+    sessions.value.unshift(session)
+    return session
+  }
+
+  async function createSessionWithTitle(petId: string, title: string) {
+    const session = await sessionsApi.create({ pet_id: petId, title })
     sessions.value.unshift(session)
     return session
   }
@@ -116,8 +133,11 @@ export const useChatStore = defineStore('chat', () => {
     currentSession,
     messages,
     loading,
+    petSessions,
+    normalSessions,
     fetchSessions,
     createSession,
+    createSessionWithTitle,
     deleteSession,
     setCurrentSession,
     fetchMessages,

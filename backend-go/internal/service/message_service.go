@@ -29,6 +29,7 @@ const SummarizeThreshold = 20
 type MessageService struct {
 	messageRepo *repository.MessageRepository
 	sessionRepo *repository.SessionRepository
+	petRepo     *repository.PetRepository
 	fileStore   *repository.FileStore
 	aiService   *AIService
 	// 保护正在进行的摘要操作，防止同一 session 并发摘要
@@ -39,11 +40,13 @@ type MessageService struct {
 func NewMessageService(
 	messageRepo *repository.MessageRepository,
 	sessionRepo *repository.SessionRepository,
+	petRepo *repository.PetRepository,
 	fileStore *repository.FileStore,
 ) *MessageService {
 	return &MessageService{
 		messageRepo:    messageRepo,
 		sessionRepo:    sessionRepo,
+		petRepo:       petRepo,
 		fileStore:      fileStore,
 		summarizingMap: make(map[uuid.UUID]bool),
 	}
@@ -64,6 +67,11 @@ func (s *MessageService) Send(userID, sessionID uuid.UUID, content string) (*mod
 		return nil, err
 	}
 
+	// 如果是第一条消息，自动生成会话标题
+	if len(historyMsgs) == 0 {
+		go s.maybeUpdateTitle(sessionID, userID, content)
+	}
+
 	// 检查是否需要生成摘要（消息数量达到阈值时）
 	totalMessages := len(historyMsgs) + 1 // +1 因为还没保存当前消息
 	if totalMessages >= SummarizeThreshold && (totalMessages%SummarizeThreshold == 1) {
@@ -71,12 +79,24 @@ func (s *MessageService) Send(userID, sessionID uuid.UUID, content string) (*mod
 		go s.maybeSummarize(sessionID, historyMsgs)
 	}
 
-	// 获取 session 摘要
+	// 获取 session 及其摘要
 	var sessionSummary string
-	if s.sessionRepo != nil {
-		session, err := s.sessionRepo.GetByID(sessionID)
-		if err == nil && session != nil {
-			sessionSummary = session.Summary
+	var petInfo *PetInfo
+	session, err := s.sessionRepo.GetByID(sessionID)
+	if err == nil && session != nil {
+		sessionSummary = session.Summary
+
+		// 如果是宠物专属会话，获取宠物信息
+		if session.PetID != nil && s.petRepo != nil {
+			pet, petErr := s.petRepo.GetByID(*session.PetID)
+			if petErr == nil && pet != nil {
+				petInfo = &PetInfo{
+					Species: pet.Species,
+					Breed:   pet.Breed,
+					Age:     pet.Age,
+					Weight:  pet.Weight,
+				}
+			}
 		}
 	}
 
@@ -105,7 +125,7 @@ func (s *MessageService) Send(userID, sessionID uuid.UUID, content string) (*mod
 
 	// 调用 AI 服务（带历史和摘要）
 	if s.aiService != nil {
-		aiResp, err := s.aiService.ChatWithHistory(content, nil, history, sessionSummary)
+		aiResp, err := s.aiService.ChatWithHistory(content, petInfo, history, sessionSummary)
 		if err != nil {
 			// AI 调用失败，返回用户消息
 			return userMsg, nil
@@ -183,6 +203,28 @@ func (s *MessageService) maybeSummarize(sessionID uuid.UUID, allMessages []model
 	now := time.Now()
 	session.Summary = summary
 	session.SummaryUpdatedAt = &now
+	s.sessionRepo.Update(session)
+}
+
+// maybeUpdateTitle 异步生成会话标题（基于第一条用户消息）
+func (s *MessageService) maybeUpdateTitle(sessionID, userID uuid.UUID, firstMessage string) {
+	if s.aiService == nil || s.sessionRepo == nil {
+		return
+	}
+
+	// 调用 AI 生成简短标题（只需要 10-20 字）
+	title, err := s.aiService.GenerateTitle(firstMessage)
+	if err != nil || title == "" {
+		return
+	}
+
+	// 更新 session 标题
+	session, err := s.sessionRepo.GetByID(sessionID)
+	if err != nil {
+		return
+	}
+	session.Title = title
+	session.UpdatedAt = time.Now()
 	s.sessionRepo.Update(session)
 }
 

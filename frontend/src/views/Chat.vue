@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElDialog } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
@@ -19,6 +19,10 @@ const petsStore = usePetsStore()
 const chatContainer = ref<HTMLElement>()
 const sidebarWidth = ref(280)
 const isCollapsed = ref(false)
+
+// 宠物选择对话框
+const petDialogVisible = ref(false)
+const selectedPetId = ref<string | null>(null)
 
 onMounted(async () => {
   await Promise.all([
@@ -39,21 +43,89 @@ watch(() => chatStore.messages, () => {
   })
 }, { deep: true })
 
+// 创建普通会话
 async function handleCreateSession() {
-  try {
-    const { value } = await ElMessageBox.prompt('请输入会话标题', '新建会话', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
-      inputValue: '新会话'
-    })
+  const session = await chatStore.createSession()
+  chatStore.setCurrentSession(session)
+}
 
-    if (value) {
-      const session = await chatStore.createSession(value)
-      chatStore.setCurrentSession(session)
-    }
-  } catch {
-    // 用户取消
+// 创建宠物专属会话
+async function handleCreatePetSession() {
+  if (petsStore.pets.length === 0) {
+    ElMessage.warning('请先添加宠物')
+    router.push('/pets')
+    return
   }
+
+  // 总是让用户选择确认，即使是只有一只宠物
+  const pet = await selectPet()
+  if (!pet) return
+
+  // 检查该宠物是否已有专属会话
+  const existingSession = chatStore.petSessions.find((s: Session) => s.pet_id === pet.id)
+  if (existingSession) {
+    ElMessage.info(`已存在与 ${pet.name} 的专属会话，正在打开...`)
+    chatStore.setCurrentSession(existingSession)
+    return
+  }
+
+  const title = `${pet.name}的专属顾问`
+  const session = await chatStore.createSessionWithTitle(pet.id, title)
+  chatStore.setCurrentSession(session)
+}
+
+// 选择宠物的辅助函数
+async function selectPet(): Promise<{ id: string; name: string } | null> {
+  const pets = petsStore.pets
+  if (pets.length === 0) return null
+
+  // 只有一只宠物也显示选择框让用户确认
+  return new Promise((resolve) => {
+    if (pets.length === 1) {
+      // 只有一只宠物，显示确认框
+      ElMessageBox.confirm(
+        `确定要为宠物 "${pets[0].name}" 创建专属对话吗？`,
+        '创建宠物专属会话',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'info'
+        }
+      ).then(() => {
+        resolve(pets[0])
+      }).catch(() => {
+        resolve(null)
+      })
+    } else {
+      // 多只宠物，显示对话框让用户直接点击选择
+      petDialogVisible.value = true
+      // 等待用户选择后 resolve
+      const checkSelected = setInterval(() => {
+        if (selectedPetId.value) {
+          clearInterval(checkSelected)
+          const pet = pets.find(p => p.id === selectedPetId.value)
+          petDialogVisible.value = false
+          selectedPetId.value = null
+          resolve(pet || null)
+        }
+      }, 50)
+
+      // 30秒超时
+      setTimeout(() => {
+        clearInterval(checkSelected)
+        if (petDialogVisible.value) {
+          petDialogVisible.value = false
+          selectedPetId.value = null
+          resolve(null)
+        }
+      }, 30000)
+    }
+  })
+}
+
+// 确认选择宠物
+function confirmPetSelection(pet: { id: string }) {
+  selectedPetId.value = pet.id
 }
 
 function handleSelectSession(session: Session) {
@@ -89,9 +161,12 @@ function handleLogout() {
       <SessionList
         v-if="!isCollapsed"
         :sessions="chatStore.sessions"
+        :pet-sessions="chatStore.petSessions"
+        :normal-sessions="chatStore.normalSessions"
         :current-session-id="chatStore.currentSession?.id"
         @select="handleSelectSession"
         @create="handleCreateSession"
+        @create-pet="handleCreatePetSession"
         @delete="handleDeleteSession"
       />
     </aside>
@@ -183,6 +258,34 @@ function handleLogout() {
         />
       </div>
     </main>
+
+    <!-- 宠物选择对话框 -->
+    <el-dialog
+      v-model="petDialogVisible"
+      title="选择宠物"
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <div class="pet-select-list">
+        <el-card
+          v-for="pet in petsStore.pets"
+          :key="pet.id"
+          class="pet-select-card"
+          shadow="hover"
+          @click="confirmPetSelection(pet)"
+        >
+          <div class="pet-card-content">
+            <div class="pet-avatar">
+              {{ pet.name.charAt(0) }}
+            </div>
+            <div class="pet-info">
+              <div class="pet-name">{{ pet.name }}</div>
+              <div class="pet-details">{{ pet.species }} · {{ pet.breed || '未知品种' }}</div>
+            </div>
+          </div>
+        </el-card>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -310,5 +413,55 @@ function handleLogout() {
 
 .chat-input {
   flex-shrink: 0;
+}
+
+.pet-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pet-select-card {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.pet-select-card:hover {
+  transform: translateY(-2px);
+}
+
+.pet-card-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pet-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.pet-info {
+  flex: 1;
+}
+
+.pet-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.pet-details {
+  font-size: 13px;
+  color: #999;
+  margin-top: 4px;
 }
 </style>
