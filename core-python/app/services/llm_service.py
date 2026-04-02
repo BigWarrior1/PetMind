@@ -1,6 +1,6 @@
 """
 LLM 服务
-调用阿里百炼 qwen3.5-plus 模型（统一多模态：文本 + 图片）
+调用阿里百炼模型（文本 + 图片多模态）
 """
 import base64
 import os
@@ -12,8 +12,9 @@ from app.core.config import DASHSCOPE_API_KEY
 # LLM 调用超时（秒）
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
 
-# 模型配置
-DEFAULT_MODEL = "qwen3.5-plus"  # 统一多模态模型
+# 模型配置（qwen3.5-plus 是多模态模型，支持文本+图片）
+DEFAULT_MODEL = "qwen3.5-plus"
+VISION_MODEL = "qwen3.5-plus"
 
 # API 配置
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -32,6 +33,7 @@ class LLMService:
         self.model = model
         self.base_url = base_url
         self._chat_model: Optional[ChatOpenAI] = None
+        self._vision_model: Optional[ChatOpenAI] = None
 
     def get_chat_model(self) -> ChatOpenAI:
         """获取聊天模型实例"""
@@ -44,6 +46,18 @@ class LLMService:
                 request_timeout=LLM_TIMEOUT,
             )
         return self._chat_model
+
+    def get_vision_model(self) -> ChatOpenAI:
+        """获取视觉模型实例（用于图片分析）"""
+        if self._vision_model is None:
+            self._vision_model = ChatOpenAI(
+                model=VISION_MODEL,
+                api_key=self.api_key,
+                base_url=self.base_url,
+                temperature=0.7,
+                request_timeout=LLM_TIMEOUT,
+            )
+        return self._vision_model
 
     def chat(self, messages: List[BaseMessage]) -> str:
         """
@@ -146,7 +160,10 @@ class LLMService:
         if system_prompt:
             messages.insert(0, SystemMessage(content=system_prompt))
 
-        return self.chat(messages)
+        # 使用视觉模型进行分析
+        vision_model = self.get_vision_model()
+        response = vision_model.invoke(messages)
+        return response.content
 
     def analyze_images(
         self,
@@ -187,7 +204,10 @@ class LLMService:
         if system_prompt:
             messages.insert(0, SystemMessage(content=system_prompt))
 
-        return self.chat(messages)
+        # 使用视觉模型进行分析
+        vision_model = self.get_vision_model()
+        response = vision_model.invoke(messages)
+        return response.content
 
 
 # 全局单例

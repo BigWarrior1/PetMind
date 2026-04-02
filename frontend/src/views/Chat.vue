@@ -148,8 +148,8 @@ async function handleSend(content: string) {
   await chatStore.sendMessageStream(content)
 }
 
-async function handleSendImage(file: File) {
-  await chatStore.sendImage(file)
+async function handleSendImage(file: File, question: string, dataUrl: string) {
+  await chatStore.sendImage(file, question, dataUrl)
 }
 
 function handleLogout() {

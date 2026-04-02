@@ -195,8 +195,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function sendImage(file: File, question: string = '请分析这张图片中的宠物健康状况') {
+  async function sendImage(file: File, question: string = '请分析这张图片中的宠物健康状况', dataUrl?: string) {
     if (!currentSession.value) return
+
+    // 使用传入的 dataUrl 或创建 blob URL
+    const imageUrl = dataUrl || URL.createObjectURL(file)
 
     // 1. 立即添加用户消息（乐观更新，带图片）
     const tempUserMessage: Message = {
@@ -204,7 +207,7 @@ export const useChatStore = defineStore('chat', () => {
       session_id: currentSession.value.id,
       role: 'user',
       content: question,
-      image_urls: JSON.stringify([URL.createObjectURL(file)]),
+      image_urls: JSON.stringify([imageUrl]),
       sources: '[]',
       created_at: new Date().toISOString()
     }
@@ -219,13 +222,14 @@ export const useChatStore = defineStore('chat', () => {
 
       await messagesApi.sendImage(formData)
 
-      // 再次获取消息（包含AI回复）
+      // 获取消息列表（包含AI回复）
       if (currentSession.value) {
         await fetchMessages(currentSession.value.id)
       }
-    } catch (error) {
+    } catch (error: any) {
       // 失败时移除临时消息
       messages.value = messages.value.filter(m => !m.id.startsWith('temp-'))
+      ElMessage.error(error.message || '发送图片失败')
     } finally {
       loading.value = false
     }

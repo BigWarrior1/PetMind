@@ -401,13 +401,16 @@ func (s *MessageService) SendImage(userID, sessionID uuid.UUID, file *multipart.
 	userIDStr := userID.String()
 	sessionIDStr := sessionID.String()
 
-	imagePath, err := s.fileStore.Save(userIDStr, sessionIDStr, newFilename, data)
+	imageURLPath, err := s.fileStore.Save(userIDStr, sessionIDStr, newFilename, data)
 	if err != nil {
 		return nil, fmt.Errorf("保存文件失败: %w", err)
 	}
 
+	// 获取绝对路径用于 AI 分析
+	absImagePath := s.fileStore.GetAbsPath(imageURLPath)
+
 	// 保存用户消息（带图片）
-	imageURLsJSON, _ := json.Marshal([]string{imagePath})
+	imageURLsJSON, _ := json.Marshal([]string{imageURLPath})
 
 	userMsg := &model.Message{
 		SessionID: sessionID,
@@ -419,9 +422,9 @@ func (s *MessageService) SendImage(userID, sessionID uuid.UUID, file *multipart.
 		return nil, err
 	}
 
-	// 调用 AI 图片分析
+	// 调用 AI 图片分析（使用绝对路径）
 	if s.aiService != nil {
-		aiResp, err := s.analyzeImage(imagePath, question)
+		aiResp, err := s.analyzeImage(absImagePath, question)
 		if err != nil {
 			return userMsg, nil
 		}

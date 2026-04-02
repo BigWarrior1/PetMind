@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
-import asyncio
 
 from app.services.rag_service import get_rag_service
 from app.services.llm_service import get_llm_service
@@ -157,6 +156,14 @@ async def chat_stream(request: ChatRequest):
         rag_service = get_rag_service()
         documents, sources = rag_service.retriever.retrieve_with_sources(request.question)
 
+        # 预先检查是否需要就医警示（提前到流式之前）
+        warning = None
+        warning_keywords = ["高烧", "呼吸困难", "严重出血", "昏迷", "中毒", "骨折", "休克"]
+        for keyword in warning_keywords:
+            if keyword in request.question:
+                warning = "⚠️ 根据您描述的症状，建议立即带宠物前往最近的宠物医院就诊！"
+                break
+
         # 构建宠物信息上下文
         pet_context = ""
         if request.pet_info:
@@ -204,21 +211,11 @@ async def chat_stream(request: ChatRequest):
 
         llm_service = get_llm_service()
 
-        # 流式 yield 每个 token
+        # 流式 yield 每个 token（移除不必要的 await sleep）
         for chunk in llm_service.chat_stream(messages):
             yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
-            await asyncio.sleep(0)  # 让出控制权
 
-        # 流式结束后，发送 sources 和 warning
-        warning = None
-        if documents:
-            # 检查是否需要就医警示
-            warning_keywords = ["高烧", "呼吸困难", "严重出血", "昏迷", "中毒", "骨折", "休克"]
-            for keyword in warning_keywords:
-                if keyword in request.question:
-                    warning = "⚠️ 根据您描述的症状，建议立即带宠物前往最近的宠物医院就诊！"
-                    break
-
+        # 流式结束后，发送 done 事件（warning 已提前检查）
         yield f"data: {json.dumps({'type': 'done', 'sources': sources, 'warning': warning})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

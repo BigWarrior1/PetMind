@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"petmind-backend/internal/config"
 	"petmind-backend/internal/model"
@@ -216,6 +217,7 @@ func NewFileStore(baseDir string) *FileStore {
 	return &FileStore{baseDir: baseDir}
 }
 
+// Save 保存文件并返回 URL 路径
 func (f *FileStore) Save(userID, sessionID, filename string, data []byte) (string, error) {
 	dir := filepath.Join(f.baseDir, userID, sessionID)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -230,5 +232,14 @@ func (f *FileStore) Save(userID, sessionID, filename string, data []byte) (strin
 		return "", err
 	}
 
-	return path, nil
+	// 返回 URL 路径（相对路径）
+	urlPath := fmt.Sprintf("/uploads/%s/%s/%s", userID, sessionID, newFilename)
+	return urlPath, nil
+}
+
+// GetAbsPath 将 URL 路径转换为本地绝对路径
+func (f *FileStore) GetAbsPath(urlPath string) string {
+	// 去掉前缀 /uploads/
+	relPath := strings.TrimPrefix(urlPath, "/uploads/")
+	return filepath.Join(f.baseDir, relPath)
 }

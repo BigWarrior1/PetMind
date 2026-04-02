@@ -55,6 +55,9 @@ func main() {
 	r.Use(middleware.CORS())
 	r.Use(middleware.Logger())
 
+	// 静态文件服务（上传的图片）
+	r.Static("/uploads", cfg.UploadDir)
+
 	// API 路由
 	api := r.Group("/api/v1")
 	{

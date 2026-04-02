@@ -15,6 +15,10 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',  // Go 后端地址
         changeOrigin: true
+      },
+      '/uploads': {
+        target: 'http://localhost:8080',  // Go 后端地址（图片上传目录）
+        changeOrigin: true
       }
     }
   }

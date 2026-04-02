@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"path/filepath"
 	"strings"
@@ -298,20 +299,35 @@ func (s *AIService) AnalyzeImage(imagePath, question string) (*model.AIResponse,
 	// 读取图片文件
 	data, err := os.ReadFile(imagePath)
 	if err != nil {
-		return nil, fmt.Errorf("读取图片文件失败: %w", err)
+		return nil, fmt.Errorf("读取图片文件失败: %w (path: %s)", err, imagePath)
+	}
+
+	// 根据文件扩展名确定 MIME 类型
+	ext := strings.ToLower(filepath.Ext(imagePath))
+	var contentType string
+	switch ext {
+	case ".jpg", ".jpeg":
+		contentType = "image/jpeg"
+	case ".png":
+		contentType = "image/png"
+	default:
+		contentType = "application/octet-stream"
 	}
 
 	// 构建 multipart/form-data 请求
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	buf := &bytes.Buffer{}
+	writer := multipart.NewWriter(buf)
 
 	// 添加 question 字段
 	if err := writer.WriteField("question", question); err != nil {
 		return nil, fmt.Errorf("写入 question 失败: %w", err)
 	}
 
-	// 添加图片文件
-	part, err := writer.CreateFormFile("file", filepath.Base(imagePath))
+	// 添加图片文件（使用正确的 Content-Type）
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filepath.Base(imagePath)))
+	header.Set("Content-Type", contentType)
+	part, err := writer.CreatePart(header)
 	if err != nil {
 		return nil, fmt.Errorf("创建表单文件失败: %w", err)
 	}
@@ -324,7 +340,7 @@ func (s *AIService) AnalyzeImage(imagePath, question string) (*model.AIResponse,
 	}
 
 	url := fmt.Sprintf("%s/analyze/image", s.apiURL)
-	req, err := http.NewRequest("POST", url, body)
+	req, err := http.NewRequest("POST", url, buf)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
