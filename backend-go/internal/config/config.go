@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -49,6 +50,12 @@ func getExecutableDir() string {
 // Load 加载配置
 // 优先级：环境变量 > 命令行标志 > 配置文件 > 默认值
 func Load(configPath string) (*Config, error) {
+	// 加载 backend-go/.env 文件（仅当前目录，不会递归查找）
+	// godotenv.Load() 只加载指定路径，不会读取其他 .env 文件
+	execDir := getExecutableDir()
+	backendGoDir := filepath.Dir(filepath.Dir(execDir)) // backend-go/cmd/server -> backend-go/
+	godotenv.Load(filepath.Join(backendGoDir, ".env"))
+
 	v := viper.New()
 
 	// 设置配置文件名和类型
@@ -57,15 +64,18 @@ func Load(configPath string) (*Config, error) {
 
 	// 添加配置文件搜索路径（按优先级排序）
 	// 1. 程序所在目录（最优先，用于打包后的程序）
-	execDir := getExecutableDir()
 	v.AddConfigPath(execDir)
 	v.AddConfigPath(filepath.Join(execDir, "config"))
 
-	// 2. 当前工作目录（开发时使用）
+	// 2. backend-go 目录（项目根目录）
+	v.AddConfigPath(backendGoDir)
+	v.AddConfigPath(filepath.Join(backendGoDir, "config"))
+
+	// 3. 当前工作目录（开发时使用）
 	v.AddConfigPath(".")
 	v.AddConfigPath("./config")
 
-	// 3. 系统配置目录（生产环境）
+	// 4. 系统配置目录（生产环境）
 	v.AddConfigPath("/etc/petmind/")
 
 	// 如果指定了配置路径，添加它（最高优先级）
@@ -74,9 +84,9 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// 环境变量配置
-	v.SetEnvPrefix("PETMIND")                                  // 环境变量前缀: PETMIND_JWT_SECRET
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))        // db.path -> DB_PATH
-	v.AutomaticEnv()                                           // 允许环境变量覆盖
+	v.SetEnvPrefix("PETMIND")                          // 环境变量前缀: PETMIND_JWT_SECRET
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // db.path -> DB_PATH
+	v.AutomaticEnv()                                   // 允许环境变量覆盖
 
 	// 配置键名（与 yaml/json 一致）
 	v.SetDefault("jwt_secret", "your-secret-key-change-in-production")
