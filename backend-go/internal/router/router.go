@@ -1,4 +1,4 @@
-package main
+package router
 
 import (
 	"petmind-backend/internal/handler"

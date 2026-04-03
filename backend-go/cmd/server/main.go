@@ -6,6 +6,7 @@ import (
 	"petmind-backend/internal/config"
 	"petmind-backend/internal/handler"
 	"petmind-backend/internal/repository"
+	"petmind-backend/internal/router"
 	"petmind-backend/internal/service"
 )
 
@@ -46,7 +47,7 @@ func main() {
 	messageHandler := handler.NewMessageHandler(messageService, sessionService)
 
 	// 设置路由
-	r := SetupRouter(authHandler, petHandler, sessionHandler, messageHandler, cfg.UploadDir, cfg.JWTSecret)
+	r := router.SetupRouter(authHandler, petHandler, sessionHandler, messageHandler, cfg.UploadDir, cfg.JWTSecret)
 
 	// 启动服务
 	log.Printf("服务器启动: http://localhost:%s", cfg.Port)
