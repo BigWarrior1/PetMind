@@ -47,6 +47,7 @@ core-python/data/vectorstore/
 # Go (Backend placeholder)
 backend-go/bin/
 backend-go/dist/
+backend-go/data/
 *.exe
 *.test
 *.prof
