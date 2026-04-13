@@ -31,6 +31,7 @@ func main() {
 	petRepo := repository.NewPetRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
 
 	// 初始化 Service
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
@@ -41,13 +42,14 @@ func main() {
 	messageService.SetAIService(aiService)
 
 	// 初始化 Handler
-	authHandler := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService, cfg.AdminSecret)
 	petHandler := handler.NewPetHandler(petService)
 	sessionHandler := handler.NewSessionHandler(sessionService)
 	messageHandler := handler.NewMessageHandler(messageService, sessionService)
+	adminHandler := handler.NewAdminHandler(adminRepo)
 
 	// 设置路由
-	r := router.SetupRouter(authHandler, petHandler, sessionHandler, messageHandler, cfg.UploadDir, cfg.JWTSecret)
+	r := router.SetupRouter(authHandler, petHandler, sessionHandler, messageHandler, adminHandler, cfg.UploadDir, cfg.JWTSecret)
 
 	// 启动服务
 	log.Printf("服务器启动: http://localhost:%s", cfg.Port)

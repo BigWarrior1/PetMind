@@ -12,6 +12,7 @@ type User struct {
 	Username  string    `json:"username" gorm:"uniqueIndex;not null"`
 	Email     string    `json:"email" gorm:"uniqueIndex;not null"`
 	Password  string    `json:"-" gorm:"not null"` // 不返回给前端
+	Role      string    `json:"role" gorm:"default:user"` // user / admin
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -74,6 +75,20 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token string `json:"token"`
 	User  User   `json:"user"`
+}
+
+// 管理员注册请求
+type AdminRegisterRequest struct {
+	Username   string `json:"username" binding:"required,min=3,max=50"`
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required,min=6"`
+	AdminSecret string `json:"admin_secret" binding:"required"`
+}
+
+// 管理员登录请求
+type AdminLoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 // 创建宠物请求

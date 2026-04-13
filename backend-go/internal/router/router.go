@@ -13,6 +13,7 @@ func SetupRouter(
 	petHandler *handler.PetHandler,
 	sessionHandler *handler.SessionHandler,
 	messageHandler *handler.MessageHandler,
+	adminHandler *handler.AdminHandler,
 	uploadDir string,
 	jwtSecret string,
 ) *gin.Engine {
@@ -33,6 +34,13 @@ func SetupRouter(
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+		}
+
+		// 管理员认证（不需要普通 Auth 中间件）
+		adminAuth := api.Group("/admin")
+		{
+			adminAuth.POST("/register", authHandler.AdminRegister)
+			adminAuth.POST("/login", authHandler.AdminLogin)
 		}
 
 		// 需要认证的路由
@@ -65,6 +73,20 @@ func SetupRouter(
 				messages.POST("", messageHandler.Send)
 				messages.POST("/stream", messageHandler.SendStream)
 				messages.POST("/image", messageHandler.SendImage)
+			}
+
+			// 管理员业务接口（需 admin role）
+			admin := protected.Group("/admin")
+			admin.Use(middleware.AdminAuth())
+			{
+				admin.GET("/stats", adminHandler.GetStats)
+				admin.GET("/users", adminHandler.ListUsers)
+				admin.DELETE("/users/:id", adminHandler.DeleteUser)
+				admin.GET("/pets", adminHandler.ListPets)
+				admin.DELETE("/pets/:id", adminHandler.DeletePet)
+				admin.GET("/sessions", adminHandler.ListSessions)
+				admin.GET("/sessions/:id/messages", adminHandler.GetSessionMessages)
+				admin.DELETE("/sessions/:id", adminHandler.DeleteSession)
 			}
 		}
 	}

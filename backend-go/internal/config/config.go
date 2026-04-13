@@ -32,6 +32,9 @@ type Config struct {
 
 	// 服务器配置
 	Port string `mapstructure:"port"`
+
+	// 管理员配置
+	AdminSecret string `mapstructure:"admin_secret"`
 }
 
 // getExecutableDir 获取程序所在目录
@@ -100,6 +103,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("ai_api_url", "http://localhost:8000/api/v1")
 	v.SetDefault("upload_dir", "./data/uploads")
 	v.SetDefault("port", "8080")
+	v.SetDefault("admin_secret", "petmind-admin-secret-key")
 
 	// 读取配置文件（忽略错误，允许只有环境变量的情况）
 	if err := v.ReadInConfig(); err != nil {

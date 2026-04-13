@@ -22,3 +22,6 @@ upload_dir: "./data/uploads"                       # 上传文件存储目录
 
 # 服务器配置
 port: "8080"                                # 服务监听端口
+
+# 管理员配置
+admin_secret: "123456"   # 管理员注册密钥
