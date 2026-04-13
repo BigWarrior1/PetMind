@@ -52,6 +52,11 @@ backend-go/data/
 *.test
 *.prof
 
+# Database
+*.db
+*.sqlite3
+*.sqlite
+
 # Frontend (Placeholder)
 node_modules/
 frontend/dist/
@@ -64,6 +69,9 @@ frontend/build/
 .idea/
 *.swp
 *.swo
+
+# Claude Code
+.claude/settings.local.json
 
 
 #doc

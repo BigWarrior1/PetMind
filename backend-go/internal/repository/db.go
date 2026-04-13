@@ -11,21 +11,39 @@ import (
 	"petmind-backend/internal/model"
 
 	"github.com/google/uuid"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func InitDB(cfg *config.Config) (*gorm.DB, error) {
-	// 确保目录存在
-	dir := filepath.Dir(cfg.DBPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("创建数据库目录失败: %w", err)
-	}
+	var db *gorm.DB
+	var err error
+	var dsn string
 
-	// 连接数据库
-	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
-	if err != nil {
-		return nil, fmt.Errorf("连接数据库失败: %w", err)
+	if cfg.DBType == "postgres" {
+		// PostgreSQL 连接
+		dsn = fmt.Sprintf(
+			"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
+			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort,
+		)
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err != nil {
+			return nil, fmt.Errorf("连接 PostgreSQL 失败: %w", err)
+		}
+		log.Printf("数据库初始化成功: postgres://%s@%s:%s/%s",
+			cfg.DBUser, cfg.DBHost, cfg.DBPort, cfg.DBName)
+	} else {
+		// SQLite 连接
+		dir := filepath.Dir(cfg.DBPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("创建数据库目录失败: %w", err)
+		}
+		db, err = gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
+		if err != nil {
+			return nil, fmt.Errorf("连接数据库失败: %w", err)
+		}
+		log.Printf("数据库初始化成功: %s", cfg.DBPath)
 	}
 
 	// 自动迁移
@@ -38,7 +56,6 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("数据库迁移失败: %w", err)
 	}
 
-	log.Printf("数据库初始化成功: %s", cfg.DBPath)
 	return db, nil
 }
 

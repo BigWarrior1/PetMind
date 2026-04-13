@@ -33,3 +33,13 @@ RAG_SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.5"))
 
 # 集合名称
 CHROMA_COLLECTION_NAME = "pet_health_kb"
+
+# PostgreSQL 配置 (Chroma 向量库后端)
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "Aa123456")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "petmind")
+
+# Chroma PostgreSQL 配置
+CHROMA_PG_CONNECTION_STRING = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"

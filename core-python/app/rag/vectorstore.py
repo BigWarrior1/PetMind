@@ -1,13 +1,31 @@
 """
 向量数据库封装
-使用 Chroma 向量库
+使用 Chroma 向量库，支持 SQLite 和 PostgreSQL 后端
 """
+import os
 from typing import List, Optional
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
-from app.core.config import CHROMA_PERSIST_DIR, CHROMA_COLLECTION_NAME
+from app.core.config import (
+    CHROMA_PERSIST_DIR,
+    CHROMA_COLLECTION_NAME,
+    CHROMA_PG_CONNECTION_STRING,
+)
 from app.rag.embeddings import get_embeddings
+
+
+def _create_chroma_client():
+    """创建 Chroma 客户端
+
+    注意: Chroma 1.x 版本的 PostgreSQL 支持需要 Chroma Server 部署模式。
+    当前 Python RAG 引擎使用本地 SQLite 后端存储向量数据，
+    业务数据（用户/宠物/会话）由 Go 后端存储在 PostgreSQL。
+    """
+    import chromadb
+    client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
+    print(f"Chroma 使用本地后端: {CHROMA_PERSIST_DIR}")
+    return client
 
 
 class VectorStoreManager:
@@ -16,12 +34,14 @@ class VectorStoreManager:
     def __init__(self):
         self.embeddings = get_embeddings()
         self._vectorstore: Optional[Chroma] = None
+        self._client = None
 
     def get_vectorstore(self) -> Chroma:
         """获取或创建向量库实例"""
         if self._vectorstore is None:
+            self._client = _create_chroma_client()
             self._vectorstore = Chroma(
-                persist_directory=CHROMA_PERSIST_DIR,
+                client=self._client,
                 embedding_function=self.embeddings,
                 collection_name=CHROMA_COLLECTION_NAME,
             )

@@ -5,7 +5,17 @@
       "Bash(npx vue-tsc:*)",
       "Bash(make help:*)",
       "Bash(go run:*)",
-      "Bash(go env:*)"
+      "Bash(go env:*)",
+      "Bash(dir \"d:\\\\Develop\\\\Code\\\\projects\\\\graduation_project\\\\PetMind\\\\my-thesis\")",
+      "Bash(python \"C:/Users/hhfdj/.claude/skills/hunau-undergrad-docx/scripts/extract_docx_text.py\" \"d:/Develop/Code/projects/graduation_project/PetMind/my-thesis/inputs/易与杰湖南农业大学全日制普通本科生毕业论文\\(设计\\)开题报告.docx\")",
+      "Bash(python \"C:/Users/hhfdj/.claude/skills/hunau-undergrad-docx/scripts/extract_docx_text.py\" \"d:/Develop/Code/projects/graduation_project/PetMind/my-thesis/inputs/易与杰湖南农业大学全日制普通本科生毕业论文（设计）任务书.docx\")",
+      "Bash(python \"C:/Users/hhfdj/.claude/skills/hunau-undergrad-docx/scripts/extract_docx_text.py\" \"d:/Develop/Code/projects/graduation_project/PetMind/my-thesis/inputs/附件1：湖南农业大学本科生毕业论文（设计）撰写规范.doc\")",
+      "Bash(where pandoc:*)",
+      "Bash(where dot:*)",
+      "Bash(python -c \"import matplotlib; print\\('matplotlib ok'\\)\")",
+      "Bash(python -c \"import graphviz; print\\('graphviz ok'\\)\")",
+      "Bash(python -c \"import graphviz; print\\('graphviz python lib ok'\\)\")",
+      "Bash(pip show:*)"
     ]
   }
 }
