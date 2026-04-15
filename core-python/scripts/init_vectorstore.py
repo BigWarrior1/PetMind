@@ -31,6 +31,7 @@ def deduplicate_documents(documents: list) -> list:
     seen_hashes = set()
     unique_docs = []
     duplicate_count = 0
+    duplicate_sources: dict = {}
 
     for doc in documents:
         # 用内容生成hash（加入来源防止误判）
@@ -42,10 +43,13 @@ def deduplicate_documents(documents: list) -> list:
             seen_hashes.add(content_hash)
         else:
             duplicate_count += 1
-            print(f"  ⚠️ 检测到重复内容: {doc.metadata.get('source', 'unknown')}")
+            source = doc.metadata.get('source', 'unknown')
+            duplicate_sources[source] = duplicate_sources.get(source, 0) + 1
 
     if duplicate_count > 0:
         print(f"  已去除 {duplicate_count} 个重复文档")
+        for source, count in duplicate_sources.items():
+            print(f"    - {source}: {count} 个重复")
 
     return unique_docs
 
@@ -127,6 +131,28 @@ def init_vectorstore(rebuild: bool = False):
         raw_docs = sample_docs
 
     print(f"共加载 {len(raw_docs)} 个文档")
+
+    # 过滤空文档
+    print("\n[检查空文档...]")
+    non_empty_docs = []
+    empty_count = 0
+    empty_files = {}
+    for doc in raw_docs:
+        content = doc.page_content.strip()
+        if not content or len(content) < 10:  # 少于10字符的视为无效内容
+            empty_count += 1
+            source = doc.metadata.get('source', 'unknown')
+            empty_files[source] = empty_files.get(source, 0) + 1
+            continue
+        doc.page_content = content  # 更新为清洗后的内容
+        non_empty_docs.append(doc)
+
+    if empty_count > 0:
+        print(f"  发现 {empty_count} 个空/无效文档已过滤")
+        for source, count in empty_files.items():
+            print(f"    - {source}: {count} 个空文档")
+        print(f"  有效文档: {len(non_empty_docs)} 个")
+    raw_docs = non_empty_docs
 
     # 去重
     print("\n[检查重复文档...]")

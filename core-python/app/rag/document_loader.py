@@ -139,15 +139,61 @@ def clean_pdf_text(text: str) -> str:
     # 去除 "•" "-" 等开头的不完整行
     lines = text.split('\n')
     cleaned_lines = []
+    consecutive_short_lines = 0
+
     for line in lines:
-        # 跳过只有1-2个字符的行（很可能是识别错误）
-        if len(line.strip()) <= 2 and not line.strip().isdigit():
+        stripped = line.strip()
+
+        # 跳过只有1-2个字符的行（很可能是识别错误），但统计连续短行
+        if len(stripped) <= 2 and not stripped.isdigit():
+            consecutive_short_lines += 1
+            if consecutive_short_lines >= 3:
+                continue  # 跳过可疑的连续短行（可能是页眉/页脚）
             continue
+        else:
+            consecutive_short_lines = 0
+
+        # 检测表格行（用 | 或 空格 分隔的多列数据）
+        # 保留表格但转换为简洁格式
+        if '|' in stripped or (len(stripped) > 20 and ' ' in stripped and stripped.count(' ') >= 3):
+            # 可能是表格行，规范化空格
+            parts = stripped.split()
+            if len(parts) >= 2:
+                stripped = ' | '.join(parts)
+            # 跳过仅含分隔符的行
+            if stripped.strip('| \t') == '':
+                continue
+
         cleaned_lines.append(line)
 
     text = '\n'.join(cleaned_lines)
 
     return text
+
+
+def detect_chapter_from_content(text: str) -> str:
+    """
+    从PDF内容中检测章节标题（用于补充 metadata）
+
+    检测模式：
+    - "第X章"
+    - "【标题】"
+    - "X. 标题"
+    """
+    import re
+
+    patterns = [
+        r'第[一二三四五六七八九十百千\d]+[章节篇部][^\n]{0,50}',
+        r'【([^】]+)》',
+        r'^([A-Z][\.\)][^\n]{0,50})',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.MULTILINE)
+        if match:
+            return match.group(0)[:100]  # 限制长度
+
+    return ""
 
 
 # ==================== 文档加载器基类 ====================
@@ -194,6 +240,11 @@ class PDFLoader(DocumentLoader):
         for doc in documents:
             doc.page_content = self.clean_content(doc.page_content)
             doc.metadata.update(self.get_metadata())
+
+            # 检测章节标题并添加到 metadata
+            chapter = detect_chapter_from_content(doc.page_content)
+            if chapter:
+                doc.metadata["chapter"] = chapter
 
         return documents
 
@@ -280,6 +331,7 @@ class CSVLoader(DocumentLoader):
                     "confidence": float(conf) if conf else confidence,
                     "file_path": str(self.file_path),
                     "row_num": row_num,
+                    "is_qa": True,  # 标记为问答数据，分割时整体保留
                 }
 
                 # 问答格式：问题和答案作为一个chunk
