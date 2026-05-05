@@ -153,6 +153,15 @@ export const useChatStore = defineStore('chat', () => {
           }
         }
       }
+      // 刷新会话列表以获取后端生成的标题
+      fetchSessions().then(() => {
+        if (currentSession.value) {
+          const updated = sessions.value.find(s => s.id === currentSession.value!.id)
+          if (updated) {
+            currentSession.value = updated
+          }
+        }
+      })
     } catch (error: any) {
       // 失败时移除临时消息
       messages.value = messages.value.filter(m => !m.id.startsWith('temp-'))

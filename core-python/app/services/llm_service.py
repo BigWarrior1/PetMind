@@ -13,8 +13,8 @@ from app.core.config import DASHSCOPE_API_KEY
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
 
 # 模型配置（qwen3.5-plus 是多模态模型，支持文本+图片）
-DEFAULT_MODEL = "qwen3.5-plus"
-VISION_MODEL = "qwen3.5-plus"
+DEFAULT_MODEL = "qwen3.6-flash"
+VISION_MODEL = "qwen3.6-flash"
 
 # API 配置
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
