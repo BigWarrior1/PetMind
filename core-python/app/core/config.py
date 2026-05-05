@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # 加载 .env 文件
-load_dotenv()
+load_dotenv(override=True)
 
 # 项目根目录
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

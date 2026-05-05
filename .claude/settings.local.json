@@ -15,7 +15,11 @@
       "Bash(python -c \"import matplotlib; print\\('matplotlib ok'\\)\")",
       "Bash(python -c \"import graphviz; print\\('graphviz ok'\\)\")",
       "Bash(python -c \"import graphviz; print\\('graphviz python lib ok'\\)\")",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(python -c ' *)",
+      "Bash(python modify_thesis.py)",
+      "Bash(\"core-python/venv/Scripts/python.exe\" paper/modify_thesis.py)",
+      "mcp__plugin_everything-claude-code_github__get_file_contents"
     ]
   }
 }

@@ -30,24 +30,34 @@ request.interceptors.response.use(
       const status = error.response.status
       const message = error.response.data?.error || '请求失败'
 
+      // 判断当前请求是否为登录接口
+      const isLoginRequest = error.config?.url?.includes('/auth/login') ||
+                             error.config?.url?.includes('/admin/login')
+
       switch (status) {
         case 401:
-          ElMessage.error('登录已过期，请重新登录')
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          window.location.href = '/login'
+          if (isLoginRequest) {
+            // 登录失败：显示后端返回的错误信息（如"用户名或密码错误"），不做重定向
+            ElMessage.error(message)
+          } else {
+            // Token 过期：清除登录状态并跳转登录页
+            ElMessage.error(message)
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
+            window.location.href = '/login'
+          }
           break
         case 403:
-          ElMessage.error('无权限访问')
+          ElMessage.error(message)
           break
         case 404:
-          ElMessage.error('请求资源不存在')
+          ElMessage.error(message)
           break
         case 409:
-          ElMessage.error(message)  // 显示服务端返回的错误信息，如"该宠物名字已存在"
+          ElMessage.error(message)
           break
         case 500:
-          ElMessage.error('服务器错误')
+          ElMessage.error(message)
           break
         default:
           ElMessage.error(message)
