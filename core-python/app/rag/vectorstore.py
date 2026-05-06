@@ -48,10 +48,14 @@ class VectorStoreManager:
         return self._vectorstore
 
     def add_documents(self, documents: List[Document]) -> None:
-        """添加文档到向量库"""
+        """添加文档到向量库（分批写入，避免超过 ChromaDB 单次 5461 的限制）"""
         vectorstore = self.get_vectorstore()
-        vectorstore.add_documents(documents)
-        # Chroma 0.4.x 自动持久化，无需手动调用 persist()
+        batch_size = 5000
+        total = len(documents)
+        for i in range(0, total, batch_size):
+            batch = documents[i:i + batch_size]
+            print(f"  写入向量库: {i+1}-{min(i+batch_size, total)}/{total}")
+            vectorstore.add_documents(batch)
 
     def similarity_search(
         self, query: str, k: int = 5, filter: Optional[dict] = None

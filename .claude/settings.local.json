@@ -19,7 +19,8 @@
       "Bash(python -c ' *)",
       "Bash(python modify_thesis.py)",
       "Bash(\"core-python/venv/Scripts/python.exe\" paper/modify_thesis.py)",
-      "mcp__plugin_everything-claude-code_github__get_file_contents"
+      "mcp__plugin_everything-claude-code_github__get_file_contents",
+      "Bash(python -u scripts/init_vectorstore.py --rebuild)"
     ]
   }
 }

@@ -169,8 +169,11 @@ func (s *AIService) ChatWithHistoryStream(question string, petInfo *PetInfo, his
 							Type    string `json:"type"`
 							Content string `json:"content"`
 							Sources []struct {
-								Source string  `json:"source"`
-								Score  float64 `json:"score"`
+								Source        string  `json:"source"`
+								SourceType    string  `json:"source_type"`
+								Confidence    float64 `json:"confidence"`
+								SemanticScore float64 `json:"semantic_score"`
+								CombinedScore float64 `json:"combined_score"`
 							} `json:"sources"`
 							Warning string `json:"warning"`
 						}
@@ -184,7 +187,9 @@ func (s *AIService) ChatWithHistoryStream(question string, petInfo *PetInfo, his
 								for _, src := range event.Sources {
 									sources = append(sources, model.SourceInfo{
 										Source:        src.Source,
-										SemanticScore: src.Score,
+										SourceType:    src.SourceType,
+										Confidence:    src.Confidence,
+										SemanticScore: src.SemanticScore,
 									})
 								}
 								chunkChan <- StreamChunk{

@@ -57,9 +57,12 @@ class PatchedDashScopeEmbeddings(DashScopeEmbeddings):
         """实际的 embed_documents 实现"""
         embeddings = []
         batch_size = 8  # text-embedding-v3 每批不超过 10
+        total_batches = (len(texts) + batch_size - 1) // batch_size
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
+            batch_no = i // batch_size + 1
+            print(f"  Embedding 进度: {batch_no}/{total_batches} ({batch_no*100//total_batches}%)", end="\r", flush=True)
             result = self.client.call(
                 model=self.model,
                 input=batch,
@@ -80,6 +83,7 @@ class PatchedDashScopeEmbeddings(DashScopeEmbeddings):
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
+        print()  # 换行
         return embeddings
 
     def embed_query(self, text: str) -> List[float]:
